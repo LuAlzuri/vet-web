@@ -4,7 +4,7 @@ Aplicación MVC para gestionar turnos de peluquería canina en una veterinaria.
 
 ## Estado actual
 
-Base MVC con .NET 8 y persistencia de Identity configurada para PostgreSQL. ApplicationUser agrega Nombre y Apellido obligatorios, de hasta 50 caracteres. La migración InicialIdentity crea las siete tablas estándar de Identity y carga los roles Veterinario y Tutor. Un usuario puede tener ambos roles mediante AspNetUserRoles. No se han aplicado migraciones ni creado usuarios. Las páginas Razor de ingreso, cierre de sesión y acceso denegado están implementadas en español dentro de Areas/Identity. El alta inicial del veterinario y los CRUDs quedan para las siguientes entregas.
+Base MVC con .NET 8 y persistencia de Identity configurada para PostgreSQL. ApplicationUser agrega Nombre y Apellido obligatorios, de hasta 50 caracteres. La migración InicialIdentity crea las siete tablas estándar de Identity y carga los roles Veterinario y Tutor. Un usuario puede tener ambos roles mediante AspNetUserRoles. No se han aplicado migraciones ni creado usuarios. Las páginas Razor de ingreso, cierre de sesión y acceso denegado están implementadas en español dentro de Areas/Identity. La creación explícita de la cuenta inicial con rol Veterinario está preparada; los CRUDs quedan para las siguientes entregas.
 
 ## Requisitos
 
@@ -92,7 +92,7 @@ Identity usa correo único y contraseñas de al menos 8 caracteres, con mayúscu
 
 ### Verificación de esta entrega
 
-Compilación y generación del script SQL realizadas sin conexión a la base. Se utilizó la configuración VerificacionIdentity para evitar el bloqueo de bin/Debug por la instancia local abierta. Para compilar normalmente, detener primero la aplicación con Ctrl+C. La aplicación efectiva de la migración y el inicio de sesión con un usuario real todavía no se han probado: requieren configurar PostgreSQL, aplicar la migración y crear el veterinario inicial.
+Compilación y generación del script SQL realizadas sin conexión a la base. Se utilizó la configuración VerificacionIdentity para evitar el bloqueo de bin/Debug por la instancia local abierta. Para compilar normalmente, detener primero la aplicación con Ctrl+C. La aplicación efectiva de la migración y el inicio de sesión con un usuario real todavía no se han probado: requieren configurar PostgreSQL, aplicar la migración y ejecutar el comando de creación de la cuenta inicial.
 
 ## Páginas de Identity
 
@@ -101,3 +101,95 @@ El menú muestra Iniciar sesión a visitantes y Nombre, Apellido y Cerrar sesió
 La salida se realiza mediante POST con token antifalsificación. Visitar la página de salida mediante GET solo presenta una confirmación. El ingreso también exige token antifalsificación y solo permite redirecciones de retorno locales. Acceso denegado devuelve HTTP 403.
 
 Para revisar esta entrega, detener la instancia anterior con Ctrl+C, ejecutar `dotnet run --launch-profile http` y abrir Iniciar sesión. Se puede verificar el formulario y sus mensajes sin una base configurada; autenticar una cuenta requiere completar la preparación de la base y del primer veterinario. Si falta la conexión, un envío válido del formulario informa que el acceso todavía no está disponible.
+
+## Crear la cuenta inicial con rol Veterinario
+
+Este paso crea una cuenta de ApplicationUser y su relación con el rol Veterinario. La entidad de dominio Veterinario y su matrícula se incorporarán en otra entrega. No se crea ninguna cuenta al iniciar el sitio normalmente.
+
+1. En Visual Studio, hacer clic derecho en VetWeb y seleccionar **Administrar secretos de usuario**. Completar las claves locales, reemplazando todos los valores de ejemplo:
+
+```json
+{
+  "ConnectionStrings:DefaultConnection": "Host=localhost;Port=5432;Database=vet_web;Username=TU_USUARIO;Password=TU_CLAVE_POSTGRES",
+  "VeterinarioInicial:Email": "TU_CORREO",
+  "VeterinarioInicial:Nombre": "TU_NOMBRE",
+  "VeterinarioInicial:Apellido": "TU_APELLIDO",
+  "VeterinarioInicial:Password": "TU_CONTRASEÑA_INICIAL"
+}
+```
+
+2. Detener la aplicación antes de compilar. Aplicar la migración a la base de destino revisada:
+
+```powershell
+dotnet tool restore
+dotnet tool run dotnet-ef database update
+```
+
+3. Crear la cuenta explícitamente en entorno de desarrollo, donde se cargan los secretos de usuario:
+
+```powershell
+dotnet run --launch-profile http -- --crear-veterinario
+```
+
+El comando termina al completar la operación, sin levantar el servidor web. Repetirlo con el mismo correo no cambia la contraseña ni los datos. Si el correo corresponde a una cuenta sin el rol Veterinario, se rechaza la operación sin elevar sus permisos. La creación de cuenta y asignación del rol se realizan en una transacción.
+
+4. Quitar las cuatro claves VeterinarioInicial de los secretos locales después de crear la cuenta. Conservar la conexión y guardar la contraseña en un lugar personal seguro.
+5. Ejecutar normalmente y probar Iniciar sesión con las credenciales elegidas, verificar el nombre en el menú y probar Cerrar sesión.
+
+No hay contraseñas de ejemplo operativas ni credenciales versionadas. La contraseña debe cumplir la política configurada de Identity. La migración y la creación de la cuenta modifican la base configurada; verificar siempre el destino antes de ejecutar.
+
+## Entidad Veterinario
+
+Se agregó Models/Veterinario.cs con Id, UserId obligatorio, Matricula entre 1 y 99999 y Eliminado (false por defecto). Nombre, apellido y correo permanecen en ApplicationUser.
+
+Cada perfil requiere una cuenta existente de Identity. El índice único en UserId admite como máximo un perfil veterinario por cuenta; una cuenta de tutor puede existir sin perfil veterinario. La clave foránea restringe el borrado físico de una cuenta que tenga un perfil asociado. La base también valida el rango de matrícula mediante una restricción CHECK. No se impone unicidad a Matricula porque todavía no se definió esa regla.
+
+El filtro global de consultas oculta los perfiles marcados Eliminado. Para una futura consulta administrativa de bajas puede usarse IgnoreQueryFilters. Este filtro no convierte Remove en borrado lógico ni bloquea por sí mismo el inicio de sesión: el controlador y las reglas de acceso se implementarán en sus entregas correspondientes.
+
+La migración AgregarVeterinario fue generada, revisada y aplicada en la base local de desarrollo. Se creó y verificó el perfil activo de la cuenta inicial con rol Veterinario y matrícula 45789. Este registro es un dato local; la migración no incluye usuarios ni matrículas personales y no lo reproduce al instalar en otra base. No se agregaron controladores ni vistas en esta entrega. La compilación y la comprobación de sincronización entre modelo y migración pasaron correctamente.
+
+## Entidad Tutor
+
+Se agregó Models/Tutor.cs con Id, UserId obligatorio y Eliminado (false por defecto). ApplicationUser conserva nombre, apellido y correo; esos datos no se duplican en el perfil.
+
+Cada tutor se vincula a una cuenta existente de Identity mediante una relación uno a uno con índice único en UserId y borrado restringido. Una misma cuenta puede tener simultáneamente perfil Tutor y perfil Veterinario. Crear un perfil no asigna automáticamente un rol de Identity: esa operación se incorporará al implementar el alta administrada por el veterinario.
+
+Las consultas habituales excluyen perfiles Eliminado mediante un filtro global. El filtro no convierte Remove en una baja lógica ni bloquea por sí mismo la autenticación. Estas reglas se completarán en la capa de administración y acceso. Los teléfonos, perros y vetos se incorporarán en sus respectivas entregas.
+
+La migración AgregarTutor fue generada, revisada y aplicada a PostgreSQL en la base local de desarrollo. No se crearon tutores, controladores ni vistas en esta entrega. Se verificaron la compilación, la sincronización del modelo con la migración y la generación del SQL incremental.
+
+## Entidad TelefonoTutor
+
+Se agregó TelefonoTutor con Id, TutorId, NombrePropietario obligatorio (hasta 100 caracteres) y Numero obligatorio (hasta 30 caracteres, con validación Phone). Los límites de longitud son decisiones de implementación; el contexto no fijaba longitudes. El número se almacena como texto para conservar prefijos y ceros iniciales. El propietario puede ser una persona distinta del tutor y no necesita una cuenta de Identity.
+
+La colección Tutor.Telefonos permite varios números por tutor; no se exige unicidad global del teléfono. La clave foránea impide registros huérfanos y restringe el borrado físico en cascada. Las consultas habituales excluyen teléfonos de tutores eliminados, sin borrar esos registros. No se agregó Eliminado al teléfono porque el diagrama no lo contempla; la política de eliminación individual se resolverá al implementar su administración.
+
+La migración AgregarTelefonoTutor crea únicamente TelefonosTutores y su índice sobre TutorId. Fue generada y revisada; todavía no se aplicó a PostgreSQL. Se verificaron compilación, sincronización del modelo y generación de SQL incremental. No se agregaron controladores ni vistas.
+
+## Entidad GrupoEtario
+
+Se agregó el catálogo GrupoEtario con Id y Descripcion obligatoria de hasta 100 caracteres. El límite es una decisión de implementación para mantener simples y consistentes los catálogos. No se agregaron rangos de edad, registros iniciales ni restricciones de unicidad de descripción porque esas reglas no están definidas en el contexto. La relación con Perro se incorporará al crear esa entidad.
+
+La migración AgregarGrupoEtario crea únicamente la tabla GruposEtarios. Fue generada y revisada; todavía no se aplicó a PostgreSQL. Se verificaron compilación, sincronización del modelo y generación del SQL incremental. No se agregaron controladores ni vistas.
+
+## Entidad Tamanio
+
+Se agregó el catálogo Tamanio con Id y Descripcion obligatoria de hasta 100 caracteres, siguiendo la estructura de GrupoEtario. Se registra mediante Tamanios en ApplicationDbContext. La relación con Perro se incorporará al crear esa entidad. No se cargaron categorías iniciales ni se agregaron restricciones de unicidad porque el contexto no las define.
+
+La migración AgregarTamanio crea únicamente Tamanios. Fue generada y revisada; todavía no se aplicó a PostgreSQL. Se verificaron compilación, sincronización del modelo y generación de SQL incremental. No se agregaron controladores ni vistas.
+
+## Entidad Patologia
+
+Se agregó el catálogo Patologia con Id y Descripcion obligatoria de hasta 100 caracteres, siguiendo la estructura de los otros catálogos. Se registra mediante Patologias en ApplicationDbContext. La asociación con perros, con Controlado y Observacion, se incorporará al crear PerroPatologia. No se cargaron patologías iniciales ni se agregaron restricciones de unicidad porque el contexto no las define.
+
+La migración AgregarPatologia crea únicamente Patologias. Fue generada y revisada; todavía no se aplicó a PostgreSQL. Se verificaron compilación, sincronización del modelo y generación de SQL incremental. No se agregaron controladores ni vistas.
+
+## Entidad Perro
+
+Se agregó Perro con Id, Nombre obligatorio (hasta 100 caracteres), FechaNacimiento, Reactivo, CalendarioVacunasCompleto y relaciones obligatorias con Tutor, GrupoEtario y Tamanio. Tutor.Perros permite consultar las mascotas asociadas. La fecha usa DateTime en C# y date en PostgreSQL para conservar el día sin hora ni zona horaria; es una adaptación del datetime del diagrama a una fecha de nacimiento.
+
+Se agregó Eliminado (false por defecto), adicional al SVG, para cumplir el requisito de conservar el historial mediante bajas lógicas. El filtro global excluye perros eliminados y perros cuyo tutor esté eliminado, sin borrar esos datos. El controlador deberá realizar la baja lógica explícitamente; Remove no se transforma automáticamente en una baja lógica.
+
+Las tres relaciones restringen el borrado físico en cascada. No se agregaron patologías ni turnos en esta entrega. La validación de una fecha de nacimiento razonable y la regla de solicitud para cachorros menores de 45 días con vacunas incompletas se completarán en las capas de administración y turnos; el grupo etario no se calcula automáticamente porque todavía no se definieron sus rangos.
+
+La migración AgregarPerro crea únicamente Perros con sus claves e índices. Fue generada y revisada; todavía no se aplicó a PostgreSQL. Se verificaron compilación, sincronización del modelo y generación del SQL incremental. No se agregaron controladores ni vistas.

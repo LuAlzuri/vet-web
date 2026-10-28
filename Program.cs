@@ -36,6 +36,17 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 var app = builder.Build();
 
+// Comando explícito de preparación; nunca se ejecuta durante el inicio normal.
+if (args.Contains("--crear-veterinario"))
+{
+    if (string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DefaultConnection")))
+        throw new InvalidOperationException("Configurá ConnectionStrings:DefaultConnection antes de crear la cuenta inicial.");
+
+    await using var scope = app.Services.CreateAsyncScope();
+    await InicializadorIdentity.CrearVeterinarioAsync(scope.ServiceProvider, builder.Configuration);
+    return;
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Inicio/Error");
@@ -55,4 +66,3 @@ app.MapControllerRoute(
 app.MapRazorPages();
 
 app.Run();
-
