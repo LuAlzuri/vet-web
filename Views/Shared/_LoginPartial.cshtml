@@ -1,0 +1,24 @@
+@using Microsoft.AspNetCore.Identity
+@using VetWeb.Models
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+<ul class="navbar-nav">
+@if (SignInManager.IsSignedIn(User))
+{
+    var usuario = await UserManager.GetUserAsync(User);
+    <li class="nav-item">
+        <span class="nav-link text-dark">Hola, @usuario?.Nombre @usuario?.Apellido</span>
+    </li>
+    <li class="nav-item">
+        <form asp-area="Identity" asp-page="/Account/Logout" method="post">
+            <button type="submit" class="nav-link btn btn-link text-dark">Cerrar sesión</button>
+        </form>
+    </li>
+}
+else
+{
+    <li class="nav-item">
+        <a class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Login">Iniciar sesión</a>
+    </li>
+}
+</ul>

@@ -1,0 +1,24 @@
+# Compilación y herramientas
+bin/
+obj/
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+TestResults/
+artifacts/
+# Configuración local y credenciales
+.env
+.env.*
+!.env.example
+appsettings.Local.json
+appsettings.*.Local.json
+secrets.json
+*.pfx
+*.p12
+# Archivos temporales
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
