@@ -39,6 +39,8 @@ public class Perro
 
     public Tamanio Tamanio { get; set; } = null!;
 
+    public ICollection<PerroPatologia> Patologias { get; set; } = new List<PerroPatologia>();
+
     [Display(Name = "Eliminado")]
     public bool Eliminado { get; set; }
 }
