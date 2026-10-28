@@ -4,7 +4,7 @@ Aplicación MVC para gestionar turnos de peluquería canina en una veterinaria.
 
 ## Estado actual
 
-Base MVC con .NET 8 y persistencia de Identity configurada para PostgreSQL. ApplicationUser agrega Nombre y Apellido obligatorios, de hasta 50 caracteres. La migración InicialIdentity crea las siete tablas estándar de Identity y carga los roles Veterinario y Tutor. Un usuario puede tener ambos roles mediante AspNetUserRoles. No se han aplicado migraciones ni creado usuarios. Las páginas Razor de ingreso, cierre de sesión y acceso denegado están implementadas en español dentro de Areas/Identity. La creación explícita de la cuenta inicial con rol Veterinario está preparada; los CRUDs quedan para las siguientes entregas.
+Base MVC con .NET 8 y persistencia de Identity configurada para PostgreSQL. ApplicationUser agrega Nombre y Apellido obligatorios, de hasta 50 caracteres. La migración InicialIdentity crea las siete tablas estándar de Identity y carga los roles Veterinario y Tutor. Un usuario puede tener ambos roles mediante AspNetUserRoles. En la base local se aplicaron InicialIdentity, AgregarVeterinario y AgregarTutor; existe la cuenta inicial y su perfil veterinario. Las demás migraciones están generadas y pendientes de aplicar. Las páginas Razor de ingreso, cierre de sesión y acceso denegado están implementadas en español dentro de Areas/Identity. La creación explícita de la cuenta inicial con rol Veterinario está preparada; los CRUDs quedan para las siguientes entregas.
 
 ## Requisitos
 
@@ -193,3 +193,40 @@ Se agregó Eliminado (false por defecto), adicional al SVG, para cumplir el requ
 Las tres relaciones restringen el borrado físico en cascada. No se agregaron patologías ni turnos en esta entrega. La validación de una fecha de nacimiento razonable y la regla de solicitud para cachorros menores de 45 días con vacunas incompletas se completarán en las capas de administración y turnos; el grupo etario no se calcula automáticamente porque todavía no se definieron sus rangos.
 
 La migración AgregarPerro crea únicamente Perros con sus claves e índices. Fue generada y revisada; todavía no se aplicó a PostgreSQL. Se verificaron compilación, sincronización del modelo y generación del SQL incremental. No se agregaron controladores ni vistas.
+
+## Entidad PerroPatologia
+
+Se agregó la relación muchos a muchos PerroPatologia con clave compuesta PerroId y PatologiaId, que impide repetir una misma patología para el mismo perro. Incluye Controlado y Observacion opcional de hasta 1000 caracteres; este límite es una decisión de implementación. Perro.Patologias y Patologia.Perros contienen las asociaciones, incluyendo sus datos adicionales.
+
+Ambas claves foráneas restringen el borrado físico en cascada. El filtro global oculta asociaciones de perros eliminados o cuyo tutor esté eliminado, sin eliminar los datos. No se agregó un campo Id independiente porque el SVG define la clave compuesta.
+
+La migración AgregarPerroPatologia crea únicamente PerrosPatologias, sus claves y el índice de PatologiaId. Fue generada y revisada; todavía no se aplicó a PostgreSQL. Se verificaron compilación, sincronización del modelo y generación del SQL incremental. No se agregaron controladores ni vistas.
+
+## Entidades restantes y migraciones individuales
+
+Se completó el modelo del SVG, con una migración independiente por entidad:
+
+| Entidad | Migración | Contenido |
+| --- | --- | --- |
+| PerroPatologia | AgregarPerroPatologia | Asociación compuesta, Controlado y Observacion opcional |
+| Estado | AgregarEstado | Catálogo con Id y Descripcion |
+| Tratamiento | AgregarTratamiento | Catálogo con Id y Descripcion |
+| Servicio | AgregarServicio | Catálogo con Id y Descripcion |
+| CupoDiario | AgregarCupoDiario | FechaCupo y NumeroCuposDisponibles |
+| Turno | AgregarTurno | Veterinario, perro, cupo, estado, tratamiento opcional y observaciones |
+| ServicioPorTurno | AgregarServicioPorTurno | Asociación compuesta y Completado |
+| Veto | AgregarVeto | Tutor, veterinario opcional, fechas y motivos |
+
+Los catálogos conservan la estructura simple de las guías, con descripción obligatoria de hasta 100 caracteres. No tienen registros iniciales. CupoDiario guarda una fecha sin hora y valida que la cantidad disponible no sea negativa, tanto en el modelo como mediante CHECK en PostgreSQL. No se definieron horarios ni unicidad por fecha, porque faltan las reglas definitivas de publicación de cupos.
+
+Turno conserva un tratamiento opcional por turno, como el SVG; sus servicios se vinculan mediante ServicioPorTurno. La clave compuesta TurnoId + ServicioId impide repetir un servicio en el mismo turno. Observaciones admite hasta 2000 caracteres. Las relaciones restringen el borrado físico en cascada. Un turno se cancelará mediante su estado, sin eliminar su historial.
+
+Veto tiene FechaFin nullable: sin fecha final representa una sanción abierta. FechaInicio y FechaFin son instantes UTC (timestamp with time zone); al asignarlos desde código debe usarse DateTime con Kind UTC, por ejemplo DateTime.UtcNow. El CHECK de fechas evita un fin anterior al inicio. Los motivos son opcionales de hasta 1000 caracteres. VeterinarioId es nullable, a diferencia del SVG, para permitir sanciones automáticas sin atribuirlas a una persona. El levantamiento y la trazabilidad de quién lo realiza se resolverán en su capa de negocio y auditoría.
+
+Las consultas habituales de Turno y ServicioPorTurno ocultan registros asociados a perros, tutores o veterinarios eliminados; Veto excluye tutores eliminados. No se borran estos registros: las futuras consultas administrativas de historial deberán usar IgnoreQueryFilters con autorización adecuada para incluir bajas lógicas.
+
+Esta entrega no implementa CRUDs, transiciones de estado, descuento o devolución de cupos, controles de concurrencia de reservas, veto automático ni la regla de edad y vacunas. Tampoco agrega auditoría, cuyo modelo y acceso siguen pendientes de definición. Estas reglas deben implementarse antes de habilitar solicitudes reales.
+
+Las ocho migraciones de esta entrega quedaron generadas y sin aplicar a PostgreSQL, junto con las cinco migraciones anteriores que todavía estaban pendientes. En la base local solo se habían aplicado InicialIdentity, AgregarVeterinario y AgregarTutor. Un futuro database update aplicará todas las pendientes en orden, por lo que debe revisarse la conexión de destino antes de ejecutarlo.
+
+Verificación de la entrega conjunta: las ocho migraciones crean exactamente una tabla cada una, sin operaciones sobre tablas existentes. Se comprobaron claves compuestas, cinco relaciones de Turno, campos opcionales, filtros de bajas, rechazo de cupos negativos y ausencia de claves foráneas implícitas. Se generó y revisó el SQL incremental de las ocho tablas. No se ejecutaron pruebas contra PostgreSQL ni se aplicaron estas migraciones.

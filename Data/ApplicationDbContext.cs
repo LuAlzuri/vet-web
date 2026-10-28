@@ -19,6 +19,21 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Tamanio> Tamanios { get; set; }
     public DbSet<Patologia> Patologias { get; set; }
     public DbSet<Perro> Perros { get; set; }
+    public DbSet<PerroPatologia> PerrosPatologias { get; set; }
+
+    public DbSet<Estado> Estados { get; set; }
+
+    public DbSet<Tratamiento> Tratamientos { get; set; }
+
+    public DbSet<Servicio> Servicios { get; set; }
+
+    public DbSet<CupoDiario> CuposDiarios { get; set; }
+
+    public DbSet<Turno> Turnos { get; set; }
+
+    public DbSet<ServicioPorTurno> ServiciosPorTurno { get; set; }
+
+    public DbSet<Veto> Vetos { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -90,6 +105,79 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasQueryFilter(perro => !perro.Eliminado && !perro.Tutor.Eliminado);
+        });
+
+        builder.Entity<PerroPatologia>(entity =>
+        {
+            entity.ToTable("PerrosPatologias");
+            entity.HasKey(relacion => new { relacion.PerroId, relacion.PatologiaId });
+
+            entity.HasOne(relacion => relacion.Perro)
+                .WithMany(perro => perro.Patologias)
+                .HasForeignKey(relacion => relacion.PerroId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(relacion => relacion.Patologia)
+                .WithMany(patologia => patologia.Perros)
+                .HasForeignKey(relacion => relacion.PatologiaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasQueryFilter(relacion => !relacion.Perro.Eliminado && !relacion.Perro.Tutor.Eliminado);
+        });
+
+        builder.Entity<Estado>().ToTable("Estados");
+
+        builder.Entity<Tratamiento>().ToTable("Tratamientos");
+
+        builder.Entity<Servicio>().ToTable("Servicios");
+
+        builder.Entity<CupoDiario>(entity =>
+        {
+            entity.ToTable("CuposDiarios", table =>
+                table.HasCheckConstraint("CK_CuposDiarios_Disponibles", "\"NumeroCuposDisponibles\" >= 0"));
+            entity.Property(cupo => cupo.FechaCupo).HasColumnType("date");
+        });
+
+        builder.Entity<Turno>(entity =>
+        {
+            entity.ToTable("Turnos");
+            entity.HasOne(turno => turno.Veterinario).WithMany()
+                .HasForeignKey(turno => turno.VeterinarioId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(turno => turno.Perro).WithMany()
+                .HasForeignKey(turno => turno.PerroId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(turno => turno.CupoDiario).WithMany()
+                .HasForeignKey(turno => turno.CupoDiarioId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(turno => turno.Estado).WithMany()
+                .HasForeignKey(turno => turno.EstadoId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(turno => turno.Tratamiento).WithMany()
+                .HasForeignKey(turno => turno.TratamientoId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(turno => !turno.Perro.Eliminado
+                && !turno.Perro.Tutor.Eliminado && !turno.Veterinario.Eliminado);
+        });
+
+        builder.Entity<ServicioPorTurno>(entity =>
+        {
+            entity.ToTable("ServiciosPorTurno");
+            entity.HasKey(relacion => new { relacion.TurnoId, relacion.ServicioId });
+            entity.HasOne(relacion => relacion.Turno).WithMany()
+                .HasForeignKey(relacion => relacion.TurnoId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(relacion => relacion.Servicio).WithMany()
+                .HasForeignKey(relacion => relacion.ServicioId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(relacion => !relacion.Turno.Perro.Eliminado
+                && !relacion.Turno.Perro.Tutor.Eliminado && !relacion.Turno.Veterinario.Eliminado);
+        });
+
+        builder.Entity<Veto>(entity =>
+        {
+            entity.ToTable("Vetos", table => table.HasCheckConstraint(
+                "CK_Vetos_Fechas", "\"FechaFin\" IS NULL OR \"FechaFin\" >= \"FechaInicio\""));
+            entity.Property(veto => veto.FechaInicio).HasColumnType("timestamp with time zone");
+            entity.Property(veto => veto.FechaFin).HasColumnType("timestamp with time zone");
+            entity.HasOne(veto => veto.Tutor).WithMany()
+                .HasForeignKey(veto => veto.TutorId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(veto => veto.Veterinario).WithMany()
+                .HasForeignKey(veto => veto.VeterinarioId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(veto => !veto.Tutor.Eliminado);
         });
 
         // Identificadores fijos para que las migraciones conserven los mismos roles.

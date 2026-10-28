@@ -244,6 +244,46 @@ namespace VetWeb.Data.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("VetWeb.Models.CupoDiario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("FechaCupo")
+                        .HasColumnType("date");
+
+                    b.Property<int>("NumeroCuposDisponibles")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CuposDiarios", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CuposDiarios_Disponibles", "\"NumeroCuposDisponibles\" >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("VetWeb.Models.Estado", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Estados", (string)null);
+                });
+
             modelBuilder.Entity("VetWeb.Models.GrupoEtario", b =>
                 {
                     b.Property<int>("Id")
@@ -327,6 +367,64 @@ namespace VetWeb.Data.Migrations
                     b.ToTable("Perros", (string)null);
                 });
 
+            modelBuilder.Entity("VetWeb.Models.PerroPatologia", b =>
+                {
+                    b.Property<int>("PerroId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PatologiaId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Controlado")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Observacion")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.HasKey("PerroId", "PatologiaId");
+
+                    b.HasIndex("PatologiaId");
+
+                    b.ToTable("PerrosPatologias", (string)null);
+                });
+
+            modelBuilder.Entity("VetWeb.Models.Servicio", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Servicios", (string)null);
+                });
+
+            modelBuilder.Entity("VetWeb.Models.ServicioPorTurno", b =>
+                {
+                    b.Property<int>("TurnoId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ServicioId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Completado")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("TurnoId", "ServicioId");
+
+                    b.HasIndex("ServicioId");
+
+                    b.ToTable("ServiciosPorTurno", (string)null);
+                });
+
             modelBuilder.Entity("VetWeb.Models.Tamanio", b =>
                 {
                     b.Property<int>("Id")
@@ -371,6 +469,66 @@ namespace VetWeb.Data.Migrations
                     b.HasIndex("TutorId");
 
                     b.ToTable("TelefonosTutores", (string)null);
+                });
+
+            modelBuilder.Entity("VetWeb.Models.Tratamiento", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Tratamientos", (string)null);
+                });
+
+            modelBuilder.Entity("VetWeb.Models.Turno", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CupoDiarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EstadoId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("PerroId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TratamientoId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("VeterinarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CupoDiarioId");
+
+                    b.HasIndex("EstadoId");
+
+                    b.HasIndex("PerroId");
+
+                    b.HasIndex("TratamientoId");
+
+                    b.HasIndex("VeterinarioId");
+
+                    b.ToTable("Turnos", (string)null);
                 });
 
             modelBuilder.Entity("VetWeb.Models.Tutor", b =>
@@ -426,6 +584,46 @@ namespace VetWeb.Data.Migrations
                     b.ToTable("Veterinarios", null, t =>
                         {
                             t.HasCheckConstraint("CK_Veterinarios_Matricula", "\"Matricula\" BETWEEN 1 AND 99999");
+                        });
+                });
+
+            modelBuilder.Entity("VetWeb.Models.Veto", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("FechaFin")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("FechaInicio")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("MotivoFinVeto")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("TutorId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("VeterinarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TutorId");
+
+                    b.HasIndex("VeterinarioId");
+
+                    b.ToTable("Vetos", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Vetos_Fechas", "\"FechaFin\" IS NULL OR \"FechaFin\" >= \"FechaInicio\"");
                         });
                 });
 
@@ -507,6 +705,44 @@ namespace VetWeb.Data.Migrations
                     b.Navigation("Tutor");
                 });
 
+            modelBuilder.Entity("VetWeb.Models.PerroPatologia", b =>
+                {
+                    b.HasOne("VetWeb.Models.Patologia", "Patologia")
+                        .WithMany("Perros")
+                        .HasForeignKey("PatologiaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("VetWeb.Models.Perro", "Perro")
+                        .WithMany("Patologias")
+                        .HasForeignKey("PerroId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Patologia");
+
+                    b.Navigation("Perro");
+                });
+
+            modelBuilder.Entity("VetWeb.Models.ServicioPorTurno", b =>
+                {
+                    b.HasOne("VetWeb.Models.Servicio", "Servicio")
+                        .WithMany()
+                        .HasForeignKey("ServicioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("VetWeb.Models.Turno", "Turno")
+                        .WithMany()
+                        .HasForeignKey("TurnoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Servicio");
+
+                    b.Navigation("Turno");
+                });
+
             modelBuilder.Entity("VetWeb.Models.TelefonoTutor", b =>
                 {
                     b.HasOne("VetWeb.Models.Tutor", "Tutor")
@@ -516,6 +752,48 @@ namespace VetWeb.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Tutor");
+                });
+
+            modelBuilder.Entity("VetWeb.Models.Turno", b =>
+                {
+                    b.HasOne("VetWeb.Models.CupoDiario", "CupoDiario")
+                        .WithMany()
+                        .HasForeignKey("CupoDiarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("VetWeb.Models.Estado", "Estado")
+                        .WithMany()
+                        .HasForeignKey("EstadoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("VetWeb.Models.Perro", "Perro")
+                        .WithMany()
+                        .HasForeignKey("PerroId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("VetWeb.Models.Tratamiento", "Tratamiento")
+                        .WithMany()
+                        .HasForeignKey("TratamientoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("VetWeb.Models.Veterinario", "Veterinario")
+                        .WithMany()
+                        .HasForeignKey("VeterinarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CupoDiario");
+
+                    b.Navigation("Estado");
+
+                    b.Navigation("Perro");
+
+                    b.Navigation("Tratamiento");
+
+                    b.Navigation("Veterinario");
                 });
 
             modelBuilder.Entity("VetWeb.Models.Tutor", b =>
@@ -538,6 +816,34 @@ namespace VetWeb.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("VetWeb.Models.Veto", b =>
+                {
+                    b.HasOne("VetWeb.Models.Tutor", "Tutor")
+                        .WithMany()
+                        .HasForeignKey("TutorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("VetWeb.Models.Veterinario", "Veterinario")
+                        .WithMany()
+                        .HasForeignKey("VeterinarioId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Tutor");
+
+                    b.Navigation("Veterinario");
+                });
+
+            modelBuilder.Entity("VetWeb.Models.Patologia", b =>
+                {
+                    b.Navigation("Perros");
+                });
+
+            modelBuilder.Entity("VetWeb.Models.Perro", b =>
+                {
+                    b.Navigation("Patologias");
                 });
 
             modelBuilder.Entity("VetWeb.Models.Tutor", b =>
