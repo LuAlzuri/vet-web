@@ -1,0 +1,10 @@
+@model IEnumerable<VetWeb.Models.PerroPatologia>
+@{ ViewData["Title"] = ViewBag.NombrePerro is null ? "Patologías por perro" : "Patologías de " + ViewBag.NombrePerro; }
+<div class="d-flex justify-content-between mb-3"><h1 class="h2">@ViewData["Title"]</h1>@if (ViewBag.PerroId is not null) { <button class="btn btn-primary" data-form-url="@Url.Action("ObtenerFormulario", new { perroId = ViewBag.PerroId })">Agregar</button> }</div>
+<partial name="_CrudModal" />
+<div class="table-responsive"><table class="table table-striped"><thead><tr><th>Perro</th><th>Patología</th><th>Controlado</th><th>Observación</th><th>Acciones</th></tr></thead><tbody>
+@foreach (var item in Model) { <tr><td>@item.Perro.Nombre</td><td>@item.Patologia.Descripcion</td><td>@(item.Controlado ? "Sí" : "No")</td><td>@item.Observacion</td><td>
+<button class="btn btn-sm btn-outline-primary" data-form-url="@Url.Action("ObtenerFormulario", new { perroId = item.PerroId, patologiaId = item.PatologiaId })">Editar</button>
+<button class="btn btn-sm btn-outline-danger" data-delete-url="@Url.Action("Eliminar", new { perroId = item.PerroId, patologiaId = item.PatologiaId })">Eliminar</button></td></tr> }
+</tbody></table></div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /><script src="~/js/crud.js" asp-append-version="true"></script> }

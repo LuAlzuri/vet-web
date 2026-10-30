@@ -1,0 +1,16 @@
+@model IEnumerable<VetWeb.Models.ServicioPorTurno>
+@{ ViewData["Title"] = "Servicios del turno"; }
+<div class="d-flex justify-content-between mb-3"><h1 class="h2">Servicios del turno @ViewBag.TurnoId</h1>
+@if (ViewBag.Editable) { <button class="btn btn-primary" data-form-url="@Url.Action("ObtenerFormulario", new { turnoId = ViewBag.TurnoId })">Agregar servicio</button> }</div>
+<a asp-controller="Turnos" asp-action="@(ViewBag.Personal == true ? "MisTurnos" : "Listado")">Volver a turnos</a>
+<partial name="_CrudModal" />
+<table class="table table-striped"><thead><tr><th>Servicio</th><th>Completado</th><th>Acciones</th></tr></thead><tbody>
+@foreach (var item in Model) {
+<tr><td>@item.Servicio.Descripcion</td><td>@(item.Completado ? "Sí" : "No")</td><td>
+@if (ViewBag.Editable) {
+<button class="btn btn-sm btn-outline-primary" data-form-url="@Url.Action("ObtenerFormulario", new { turnoId = item.TurnoId, servicioId = item.ServicioId })">Editar</button>
+<button class="btn btn-sm btn-outline-danger" data-delete-url="@Url.Action("Eliminar", new { turnoId = item.TurnoId, servicioId = item.ServicioId })">Eliminar</button>
+}
+</td></tr> }
+</tbody></table>
+@section Scripts { <partial name="_ValidationScriptsPartial" /><script src="~/js/crud.js" asp-append-version="true"></script> }

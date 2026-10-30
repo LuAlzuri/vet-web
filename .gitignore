@@ -22,3 +22,6 @@ secrets.json
 *.tmp
 .DS_Store
 Thumbs.db
+
+# Imágenes privadas cargadas por los usuarios
+App_Data/

@@ -1,0 +1,28 @@
+@model VetWeb.Dtos.TurnoDto
+<div class="modal-header"><h2 class="modal-title fs-5">@(Model.Id == 0 ? "Solicitar turno" : "Editar turno")</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+<form asp-action="@(ViewBag.Personal == true ? "GuardarPersonal" : "Guardar")" method="post" data-crud><div class="modal-body">
+<div data-error class="alert alert-danger d-none" role="alert"></div><div asp-validation-summary="ModelOnly" class="text-danger"></div><input asp-for="Id" type="hidden" />
+@if (Model.Id == 0) {
+<div class="mb-3"><label asp-for="PerroId" class="form-label"></label><select asp-for="PerroId" asp-items="ViewBag.Perros" class="form-select"><option value="">Seleccionar</option></select><span asp-validation-for="PerroId" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="VeterinarioId" class="form-label"></label><select asp-for="VeterinarioId" asp-items="ViewBag.Veterinarios" class="form-select"><option value="">No especifica</option></select><span asp-validation-for="VeterinarioId" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="CupoDiarioId" class="form-label"></label><select asp-for="CupoDiarioId" asp-items="ViewBag.Cupos" class="form-select"><option value="">Seleccionar</option></select><span asp-validation-for="CupoDiarioId" class="text-danger"></span></div>
+<fieldset class="mb-3"><legend class="fs-6">Servicios solicitados</legend>
+@foreach (var servicio in (IEnumerable<VetWeb.Models.Servicio>)ViewBag.Servicios) {
+<div class="form-check"><input class="form-check-input" type="checkbox" id="servicio-@servicio.Id" name="ServicioIds" value="@servicio.Id" checked="@(Model.ServicioIds.Contains(servicio.Id) ? "checked" : null)" /><label class="form-check-label" for="servicio-@servicio.Id">@servicio.Descripcion</label></div>
+}
+</fieldset>
+} else {
+<input asp-for="PerroId" type="hidden" /><input asp-for="VeterinarioId" type="hidden" /><input asp-for="CupoDiarioId" type="hidden" />
+<p>Para cambiar perro, fecha o veterinario, cancelá este turno y generá otro. Los servicios se administran desde el listado.</p>
+}
+@if (User.IsInRole("Veterinario") && ViewBag.Personal != true) {
+<div class="mb-3"><label asp-for="TratamientoId" class="form-label"></label><select data-catalogo-otro="nuevoTratamiento" asp-for="TratamientoId" asp-items="ViewBag.Tratamientos" class="form-select"><option value="">Sin tratamiento</option></select><span asp-validation-for="TratamientoId" class="text-danger"></span></div>
+<div id="nuevoTratamiento" class="mb-3" hidden="@(Model.TratamientoId == -1 ? null : "hidden")">
+<label asp-for="NuevoTratamiento" class="form-label"></label>
+<input asp-for="NuevoTratamiento" class="form-control" maxlength="100" disabled="@(Model.TratamientoId == -1 ? null : "disabled")" />
+<span asp-validation-for="NuevoTratamiento" class="text-danger"></span>
+<div class="form-text">Si la descripción ya existe, se usará esa opción sin duplicarla.</div>
+</div>
+<div class="mb-3"><label asp-for="Observaciones" class="form-label"></label><textarea asp-for="Observaciones" class="form-control"></textarea><span asp-validation-for="Observaciones" class="text-danger"></span></div>
+}
+</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Guardar</button></div></form>

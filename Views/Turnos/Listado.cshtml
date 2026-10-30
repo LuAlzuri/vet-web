@@ -1,0 +1,24 @@
+@model IEnumerable<VetWeb.Models.Turno>
+@using VetWeb.Services
+@{ ViewData["Title"] = ViewBag.Perro is null ? (ViewBag.Personal == true ? "Mis turnos" : "Mi agenda") : "Historial de " + ViewBag.Perro; }
+<div class="d-flex justify-content-between mb-3"><h1 class="h2">@ViewData["Title"]</h1><button class="btn btn-primary" data-form-url="@Url.Action(ViewBag.Personal == true ? "SolicitarPersonal" : "ObtenerFormulario")">Solicitar turno</button></div>
+<partial name="_CrudModal" />
+<div class="table-responsive"><table class="table table-striped"><thead><tr><th>Fecha</th><th>Perro</th><th>Veterinario</th><th>Estado</th><th>Tratamiento</th><th>Observaciones</th><th>Acciones</th></tr></thead><tbody>
+@foreach (var item in Model) {
+<tr><td>@item.CupoDiario.FechaCupo.ToString("dd/MM/yyyy")</td><td>@item.Perro.Nombre</td><td>@(item.Veterinario is null ? "No especifica" : item.Veterinario.Usuario.Nombre + " " + item.Veterinario.Usuario.Apellido)</td><td>@item.Estado.Descripcion</td><td>@item.Tratamiento?.Descripcion</td><td>@item.Observaciones</td><td>
+<a class="btn btn-sm btn-outline-secondary mb-1" asp-controller="ServiciosPorTurno" asp-action="Listado" asp-route-turnoId="@item.Id" asp-route-personal="@(ViewBag.Personal == true ? "true" : "false")">Servicios</a>
+@if (EstadosTurno.Activo(item.EstadoId)) {
+    if (User.IsInRole("Veterinario") && ViewBag.Personal != true) {
+        <button class="btn btn-sm btn-outline-primary mb-1" data-form-url="@Url.Action("ObtenerFormulario", new { id = item.Id })">Editar</button>
+        if (item.EstadoId == EstadosTurno.Solicitado) {
+            <button class="btn btn-sm btn-outline-success mb-1" data-delete-url="@Url.Action("Confirmar", new { id = item.Id })" data-confirm="¿Confirmar el turno?">Confirmar</button>
+            <button class="btn btn-sm btn-outline-danger mb-1" data-delete-url="@Url.Action("Rechazar", new { id = item.Id })" data-confirm="¿Rechazar el turno y liberar su cupo?">Rechazar</button>
+        } else {
+            <button class="btn btn-sm btn-outline-success mb-1" data-delete-url="@Url.Action("Completar", new { id = item.Id })" data-confirm="¿Completar el turno? Verificá los servicios realizados antes de continuar.">Completar</button>
+        }
+    }
+    <button class="btn btn-sm btn-outline-danger mb-1" data-delete-url="@Url.Action(ViewBag.Personal == true ? "CancelarPersonal" : "Cancelar", new { id = item.Id })" data-confirm="¿Cancelar el turno y liberar su cupo?">Cancelar turno</button>
+}
+</td></tr> }
+</tbody></table></div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /><script src="~/js/crud.js" asp-append-version="true"></script> }

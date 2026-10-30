@@ -59,7 +59,7 @@ public class LoginModel : PageModel
 
         // Se busca por correo sin exigir que UserName coincida con Email.
         var user = await _signInManager.UserManager.FindByEmailAsync(Input.Email);
-        if (user is null)
+        if (user is null || !user.Activo)
         {
             ModelState.AddModelError(string.Empty, "Correo electrónico o contraseña incorrectos.");
             return Page();

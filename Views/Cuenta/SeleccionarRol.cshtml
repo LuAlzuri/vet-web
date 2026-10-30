@@ -1,0 +1,15 @@
+@model IEnumerable<string>
+@{ ViewData["Title"] = "Elegir rol"; }
+<h1 class="h2">¿Con qué rol querés trabajar?</h1>
+<p>Tu cuenta tiene más de un rol. Elegí con cuál vas a trabajar. Podés volver a este selector desde tu nombre y Cambiar rol, sin cerrar sesión.</p>
+<form asp-action="SeleccionarRol" method="post">
+<div class="row g-3">
+@foreach (var rol in Model) {
+    <div class="col-md-6"><div class="card h-100"><div class="card-body">
+    <h2 class="h4">@rol</h2>
+    <p>@(rol == "Veterinario" ? "Administrar tutores, perros, cupos y turnos de la veterinaria." : "Consultar tus perros e historial y solicitar o cancelar tus turnos.")</p>
+    <button class="btn btn-primary" type="submit" name="rol" value="@rol">Ingresar como @rol</button>
+    </div></div></div>
+}
+</div>
+</form>

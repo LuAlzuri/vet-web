@@ -12,8 +12,8 @@ public class Turno
 
     [Range(1, int.MaxValue, ErrorMessage = "Seleccioná un veterinario válido.")]
     [Display(Name = "Veterinario")]
-    public int VeterinarioId { get; set; }
-    public Veterinario Veterinario { get; set; } = null!;
+    public int? VeterinarioId { get; set; }
+    public Veterinario? Veterinario { get; set; }
 
     [Range(1, int.MaxValue, ErrorMessage = "Seleccioná un perro válido.")]
     [Display(Name = "Perro")]

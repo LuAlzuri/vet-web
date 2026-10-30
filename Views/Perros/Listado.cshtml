@@ -1,0 +1,73 @@
+@model IEnumerable<VetWeb.Models.Perro>
+@{
+    ViewData["Title"] = ViewBag.Personal == true ? "Mis perros" : "Perros";
+    var puedeAdministrar = User.IsInRole("Veterinario") && ViewBag.Personal != true;
+}
+<div class="d-flex align-items-center justify-content-between gap-3 mb-4">
+    <h1 class="h2 mb-0">@ViewData["Title"]</h1>
+    @if (puedeAdministrar)
+    {
+        <button class="btn btn-primary" data-form-url="@Url.Action("ObtenerFormulario")">Agregar perro</button>
+    }
+</div>
+<partial name="_CrudModal" />
+@if (!Model.Any())
+{
+    <p class="text-muted">Todavía no hay perros para mostrar.</p>
+}
+<div class="row g-4">
+@foreach (var perro in Model)
+{
+    <div class="col-12 col-sm-6 col-lg-4 col-xl-3 d-flex">
+        <section class="card perro-card shadow-sm mx-auto" aria-labelledby="perro-nombre-@perro.Id">
+            @if (perro.FotoArchivo is not null)
+            {
+                <img src="@Url.Action("Foto", new { id = perro.Id })" class="card-img-top perro-card-foto"
+                     alt="Foto de @perro.Nombre" width="320" height="200" loading="lazy" />
+            }
+            else
+            {
+                <div class="perro-card-foto bg-light text-muted d-flex flex-column align-items-center justify-content-center gap-2">
+                    <svg width="48" height="48" viewBox="0 0 48 48" fill="currentColor" aria-hidden="true" focusable="false">
+                        <ellipse cx="13" cy="13" rx="5" ry="7" transform="rotate(-20 13 13)" />
+                        <ellipse cx="24" cy="9" rx="5" ry="7" />
+                        <ellipse cx="35" cy="13" rx="5" ry="7" transform="rotate(20 35 13)" />
+                        <path d="M24 22c-6 0-8 5-12 9-3 3-3 9 2 11 4 2 7-1 10-1s6 3 10 1c5-2 5-8 2-11-4-4-6-9-12-9Z" />
+                    </svg>
+                    <span class="small">Sin foto</span>
+                </div>
+            }
+            <div class="card-body pb-2">
+                <h2 class="card-title h5 text-primary mb-3" id="perro-nombre-@perro.Id">@perro.Nombre</h2>
+                <table class="table table-sm perro-card-datos mb-0">
+                    <caption class="visually-hidden">Información de @perro.Nombre</caption>
+                    <tbody>
+                        <tr><th scope="row">Tutor</th><td>@perro.Tutor.Usuario.Apellido, @perro.Tutor.Usuario.Nombre</td></tr>
+                        <tr><th scope="row">Nacimiento</th><td>@perro.FechaNacimiento.ToString("dd/MM/yyyy")</td></tr>
+                        <tr><th scope="row">Grupo etario</th><td>@perro.GrupoEtario.Descripcion</td></tr>
+                        <tr><th scope="row">Tamaño</th><td>@perro.Tamanio.Descripcion</td></tr>
+                        <tr><th scope="row">Reactivo</th><td>@(perro.Reactivo ? "Sí" : "No")</td></tr>
+                        <tr><th scope="row">Vacunas completas</th><td>@(perro.CalendarioVacunasCompleto ? "Sí" : "No")</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer bg-white border-top-0 pt-3 pb-3">
+                <a class="btn btn-primary w-100" asp-controller="Turnos" asp-action="Historial"
+                   asp-route-perroId="@perro.Id" asp-route-personal="@(ViewBag.Personal == true ? "true" : "false")">Historial</a>
+                @if (puedeAdministrar)
+                {
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        <a class="btn btn-sm btn-outline-secondary flex-grow-1" asp-controller="PerrosPatologias" asp-action="Listado" asp-route-perroId="@perro.Id">Patologías</a>
+                        <button class="btn btn-sm btn-outline-primary flex-grow-1" data-form-url="@Url.Action("ObtenerFormulario", new { id = perro.Id })">Editar</button>
+                        <button class="btn btn-sm btn-outline-danger flex-grow-1" data-delete-url="@Url.Action("Eliminar", new { id = perro.Id })" data-confirm="¿Dar de baja a este perro? Se conservará su historial.">Dar de baja</button>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+}
+</div>
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/crud.js" asp-append-version="true"></script>
+}

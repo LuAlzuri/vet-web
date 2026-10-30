@@ -1,0 +1,16 @@
+@model VetWeb.Dtos.CuentaDto
+<div class="modal-header"><h2 class="modal-title fs-5">@(Model.Id == 0 ? "Agregar cuenta o perfil" : "Editar cuenta")</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+<form asp-action="Guardar" asp-controller="@ViewBag.Controlador" method="post" data-crud>
+<div class="modal-body">
+<div data-error class="alert alert-danger d-none" role="alert"></div><div asp-validation-summary="ModelOnly" class="text-danger"></div><input asp-for="Id" type="hidden" />
+<div class="mb-3"><label asp-for="Nombre" class="form-label"></label><input asp-for="Nombre" class="form-control" /><span asp-validation-for="Nombre" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="Apellido" class="form-label"></label><input asp-for="Apellido" class="form-control" /><span asp-validation-for="Apellido" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" /><span asp-validation-for="Email" class="text-danger"></span></div>
+@if (ViewBag.EsVeterinario) { <div class="mb-3"><label asp-for="Matricula" class="form-label"></label><input asp-for="Matricula" class="form-control" /><span asp-validation-for="Matricula" class="text-danger"></span></div> }
+@if (Model.Id == 0) {
+<div class="mb-3"><label asp-for="Password" class="form-label"></label><div class="input-group"><input asp-for="Password" class="form-control" autocomplete="new-password" /><partial name="_MostrarPassword" model='@("Password")' /></div><span asp-validation-for="Password" class="text-danger"></span><div class="form-text">Para una cuenta nueva: 8 caracteres, mayúscula, minúscula, número y símbolo.</div></div>
+<div class="form-check"><input asp-for="VincularExistente" class="form-check-input" /><label asp-for="VincularExistente" class="form-check-label"></label></div>
+<p class="form-text">Al vincular otro perfil se conservan nombre, apellido y contraseña de la cuenta existente.</p>
+} else { <p class="form-text">Editar estos datos afecta también a los otros perfiles de esta cuenta. La contraseña no se modifica.</p> }
+</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Guardar</button></div>
+</form>

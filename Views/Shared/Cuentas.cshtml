@@ -1,0 +1,13 @@
+@model IEnumerable<VetWeb.Dtos.CuentaDto>
+@{ ViewData["Title"] = ViewBag.Titulo; }
+<div class="d-flex justify-content-between mb-3"><h1 class="h2">@ViewBag.Titulo</h1><button class="btn btn-primary" data-form-url="@Url.Action("ObtenerFormulario")">Agregar</button></div>
+<p>La baja desactiva la cuenta completa, incluidos todos sus roles. No se permite dar de baja la cuenta con la que estás trabajando.</p>
+<partial name="_CrudModal" />
+<div class="table-responsive"><table class="table table-striped"><thead><tr><th>Nombre</th><th>Correo</th>@if (ViewBag.EsVeterinario) { <th>Matrícula</th> }<th>Acciones</th></tr></thead><tbody>
+@foreach (var item in Model) {
+<tr><td>@item.Apellido, @item.Nombre</td><td>@item.Email</td>@if (ViewBag.EsVeterinario) { <td>@item.Matricula</td> }<td>
+<button class="btn btn-sm btn-outline-primary" data-form-url="@Url.Action("ObtenerFormulario", new { id = item.Id })">Editar</button>
+<button class="btn btn-sm btn-outline-danger" data-delete-url="@Url.Action("Eliminar", new { id = item.Id })" data-confirm="¿Dar de baja esta cuenta? Perderá el acceso con todos sus roles.">Dar de baja</button>
+</td></tr> }
+</tbody></table></div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /><script src="~/js/crud.js" asp-append-version="true"></script> }

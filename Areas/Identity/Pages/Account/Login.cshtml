@@ -4,7 +4,7 @@
     ViewData["Title"] = "Iniciar sesión";
 }
 <div class="row justify-content-center">
-    <div class="col-md-6 col-lg-4">
+    <div class="col-md-6 col-lg-4 acceso-panel">
         <h1 class="h2">@ViewData["Title"]</h1>
         <p>Ingresá con la cuenta que te proporcionó la veterinaria.</p>
         <form method="post" asp-route-returnUrl="@Model.ReturnUrl">
@@ -16,7 +16,10 @@
             </div>
             <div class="mb-3">
                 <label asp-for="Input.Password" class="form-label"></label>
-                <input asp-for="Input.Password" class="form-control" autocomplete="current-password" />
+                <div class="input-group">
+                    <input asp-for="Input.Password" class="form-control" autocomplete="current-password" />
+                    <partial name="_MostrarPassword" model='@("Input_Password")' />
+                </div>
                 <span asp-validation-for="Input.Password" class="text-danger"></span>
             </div>
             <div class="form-check mb-3">

@@ -178,6 +178,11 @@ namespace VetWeb.Data.Migrations
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("Activo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("Apellido")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -282,6 +287,38 @@ namespace VetWeb.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Estados", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Descripcion = "Solicitado"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Descripcion = "Confirmado"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Descripcion = "Rechazado"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Descripcion = "Completado"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Descripcion = "Cancelado por tutor"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Descripcion = "Cancelado por veterinario"
+                        });
                 });
 
             modelBuilder.Entity("VetWeb.Models.GrupoEtario", b =>
@@ -338,6 +375,10 @@ namespace VetWeb.Data.Migrations
 
                     b.Property<DateTime>("FechaNacimiento")
                         .HasColumnType("date");
+
+                    b.Property<string>("FotoArchivo")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
 
                     b.Property<int>("GrupoEtarioId")
                         .HasColumnType("integer");
@@ -513,7 +554,7 @@ namespace VetWeb.Data.Migrations
                     b.Property<int?>("TratamientoId")
                         .HasColumnType("integer");
 
-                    b.Property<int>("VeterinarioId")
+                    b.Property<int?>("VeterinarioId")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
@@ -782,8 +823,7 @@ namespace VetWeb.Data.Migrations
                     b.HasOne("VetWeb.Models.Veterinario", "Veterinario")
                         .WithMany()
                         .HasForeignKey("VeterinarioId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("CupoDiario");
 

@@ -6,13 +6,31 @@
 @if (SignInManager.IsSignedIn(User))
 {
     var usuario = await UserManager.GetUserAsync(User);
-    <li class="nav-item">
-        <span class="nav-link text-dark">Hola, @usuario?.Nombre @usuario?.Apellido</span>
-    </li>
-    <li class="nav-item">
-        <form asp-area="Identity" asp-page="/Account/Logout" method="post">
-            <button type="submit" class="nav-link btn btn-link text-dark">Cerrar sesión</button>
-        </form>
+    var activo = User.FindFirst(VetWeb.Services.RolSesion.Claim)?.Value;
+    var roles = usuario is null ? new List<string>() : (await UserManager.GetRolesAsync(usuario)).Where(VetWeb.Services.RolSesion.Permitido).ToList();
+    <li class="nav-item dropdown">
+        <button class="nav-link dropdown-toggle text-dark btn btn-link" id="menuCuenta" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false">
+            Hola, @usuario?.Nombre @usuario?.Apellido
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="menuCuenta">
+            <li><span class="dropdown-item-text text-muted">Rol activo: @(activo ?? "Pendiente de elección")</span></li>
+            <li><hr class="dropdown-divider" /></li>
+            @if (roles.Count > 1 && activo is not null)
+            {
+                <li>
+                    <form asp-area="" asp-controller="Cuenta" asp-action="CambiarRol" method="post">
+                        <button type="submit" class="dropdown-item">Cambiar rol</button>
+                    </form>
+                </li>
+                <li><span class="dropdown-item-text small text-muted">Elegí otro rol sin cerrar tu sesión.</span></li>
+            }
+            <li>
+                <form asp-area="Identity" asp-page="/Account/Logout" method="post">
+                    <button type="submit" class="dropdown-item">Cerrar sesión</button>
+                </form>
+            </li>
+        </ul>
     </li>
 }
 else

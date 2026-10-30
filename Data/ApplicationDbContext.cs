@@ -38,6 +38,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        builder.Entity<ApplicationUser>().Property(usuario => usuario.Activo).HasDefaultValue(true);
 
         builder.Entity<Veterinario>(entity =>
         {
@@ -126,6 +127,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         });
 
         builder.Entity<Estado>().ToTable("Estados");
+        builder.Entity<Estado>().HasData(
+            new Estado { Id = 1, Descripcion = "Solicitado" },
+            new Estado { Id = 2, Descripcion = "Confirmado" },
+            new Estado { Id = 3, Descripcion = "Rechazado" },
+            new Estado { Id = 4, Descripcion = "Completado" },
+            new Estado { Id = 5, Descripcion = "Cancelado por tutor" },
+            new Estado { Id = 6, Descripcion = "Cancelado por veterinario" });
 
         builder.Entity<Tratamiento>().ToTable("Tratamientos");
 
@@ -152,7 +160,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasOne(turno => turno.Tratamiento).WithMany()
                 .HasForeignKey(turno => turno.TratamientoId).OnDelete(DeleteBehavior.Restrict);
             entity.HasQueryFilter(turno => !turno.Perro.Eliminado
-                && !turno.Perro.Tutor.Eliminado && !turno.Veterinario.Eliminado);
+                && !turno.Perro.Tutor.Eliminado && (turno.VeterinarioId == null || !turno.Veterinario!.Eliminado));
         });
 
         builder.Entity<ServicioPorTurno>(entity =>
@@ -164,7 +172,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasOne(relacion => relacion.Servicio).WithMany()
                 .HasForeignKey(relacion => relacion.ServicioId).OnDelete(DeleteBehavior.Restrict);
             entity.HasQueryFilter(relacion => !relacion.Turno.Perro.Eliminado
-                && !relacion.Turno.Perro.Tutor.Eliminado && !relacion.Turno.Veterinario.Eliminado);
+                && !relacion.Turno.Perro.Tutor.Eliminado && (relacion.Turno.VeterinarioId == null || !relacion.Turno.Veterinario!.Eliminado));
         });
 
         builder.Entity<Veto>(entity =>

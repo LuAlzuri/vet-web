@@ -1,0 +1,8 @@
+@model VetWeb.Dtos.CupoDiarioDto
+<div class="modal-header"><h2 class="modal-title fs-5">Guardar registro</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+<form asp-action="Guardar" method="post" data-crud><div class="modal-body">
+<div data-error class="alert alert-danger d-none" role="alert"></div><div asp-validation-summary="ModelOnly" class="text-danger"></div>
+<input asp-for="Id" type="hidden" />
+<div class="mb-3"><label asp-for="FechaCupo" class="form-label"></label><input asp-for="FechaCupo" class="form-control" /><span asp-validation-for="FechaCupo" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="NumeroCuposDisponibles" class="form-label"></label><input asp-for="NumeroCuposDisponibles" class="form-control" /><span asp-validation-for="NumeroCuposDisponibles" class="text-danger"></span></div>
+<p class="form-text">Se edita la disponibilidad restante. Las reservas consumen un cupo y los rechazos o cancelaciones lo devuelven.</p></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Guardar</button></div></form>

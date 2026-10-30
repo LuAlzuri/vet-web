@@ -1,0 +1,22 @@
+@if (User.IsInRole("Veterinario"))
+{
+    <li class="nav-item dropdown"><a class="nav-link dropdown-toggle text-dark" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Veterinaria</a>
+    <ul class="dropdown-menu">
+        <li><a class="dropdown-item" asp-controller="Perros" asp-action="Listado">Todos los perros</a></li>
+        <li><a class="dropdown-item" asp-controller="Turnos" asp-action="Listado">Mi agenda</a></li>
+        <li><a class="dropdown-item" asp-controller="CuposDiarios" asp-action="Listado">Administrar cupos</a></li>
+        <li><a class="dropdown-item" asp-controller="Tutores" asp-action="Listado">Tutores</a></li>
+        <li><a class="dropdown-item" asp-controller="Veterinarios" asp-action="Listado">Veterinarios</a></li>
+        <li><a class="dropdown-item" asp-controller="TelefonosTutores" asp-action="Listado">Teléfonos</a></li>
+    </ul></li>
+    <li class="nav-item"><a class="nav-link text-dark" asp-controller="Servicios" asp-action="Listado">Servicios</a></li>
+}
+@if (User.IsInRole("Tutor"))
+{
+    <li class="nav-item dropdown"><a class="nav-link dropdown-toggle text-dark" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Mi espacio de tutor</a>
+    <ul class="dropdown-menu">
+        <li><a class="dropdown-item" asp-controller="Perros" asp-action="MisPerros">Mis perros</a></li>
+        <li><a class="dropdown-item" asp-controller="Turnos" asp-action="MisTurnos">Mis turnos</a></li>
+        <li><a class="dropdown-item" asp-controller="CuposDiarios" asp-action="Disponibles">Cupos disponibles</a></li>
+    </ul></li>
+}

@@ -1,0 +1,10 @@
+@model IEnumerable<VetWeb.Models.CupoDiario>
+@{ ViewData["Title"] = ViewBag.Personal == true ? "Cupos disponibles" : "Cupos diarios"; }
+<div class="d-flex justify-content-between mb-3"><h1 class="h2">@ViewData["Title"]</h1>@if (User.IsInRole("Veterinario") && ViewBag.Personal != true) {<button class="btn btn-primary" data-form-url="@Url.Action("ObtenerFormulario")">Agregar</button>}</div>
+<partial name="_CrudModal" />
+<div class="table-responsive"><table class="table table-striped"><thead><tr><th>Fecha</th><th>Disponibles</th><th>Acciones</th></tr></thead><tbody>
+@foreach (var item in Model) { <tr><td>@item.FechaCupo.ToString("dd/MM/yyyy")</td><td>@item.NumeroCuposDisponibles</td><td>@if (User.IsInRole("Veterinario") && ViewBag.Personal != true) {
+<button class="btn btn-sm btn-outline-primary" data-form-url="@Url.Action("ObtenerFormulario", new { id = item.Id })">Editar</button>
+<button class="btn btn-sm btn-outline-danger" data-delete-url="@Url.Action("Eliminar", new { id = item.Id })">Eliminar</button>} <a class="btn btn-sm btn-outline-secondary" asp-controller="Turnos" asp-action="@(ViewBag.Personal == true ? "MisTurnos" : "Listado")">Ver turnos</a></td></tr> }
+</tbody></table></div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /><script src="~/js/crud.js" asp-append-version="true"></script> }
