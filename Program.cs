@@ -60,6 +60,24 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 var app = builder.Build();
 
+if (args.Contains("--semilla-agenda"))
+{
+    if (!app.Environment.IsDevelopment())
+        throw new InvalidOperationException("La agenda demo solo está disponible en Development.");
+    await using var scope = app.Services.CreateAsyncScope();
+    await SemillaAgendaDemo.CrearAsync(scope.ServiceProvider);
+    return;
+}
+
+if (args.Contains("--semilla-tutores"))
+{
+    if (!app.Environment.IsDevelopment())
+        throw new InvalidOperationException("La semilla de tutores solo está disponible en Development.");
+    await using var scope = app.Services.CreateAsyncScope();
+    await SemillaTutoresDemo.CrearAsync(scope.ServiceProvider, args.Contains("--actualizar-fotos-demo"));
+    return;
+}
+
 if (args.Contains("--semilla-demo"))
 {
     if (!app.Environment.IsDevelopment())

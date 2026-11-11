@@ -66,3 +66,45 @@ Al pulsar el nombre aparece el rol activo y Cerrar sesión. Las cuentas con ambo
 ## Agenda profesional
 
 Los dos turnos de la semilla están asignados a Marina (veterinario.demo@vetweb.invalid). Alex con rol Veterinario no debe verlos en Mi agenda, aunque como Tutor sí consulta el turno de su propio perro. Para probar turnos compartidos, publicar un cupo futuro y solicitar un turno eligiendo No especifica: aparece en las agendas de todos los profesionales. Los turnos compartidos no se asignan automáticamente al confirmarlos.
+
+
+## Tres tutores adicionales con fotos
+
+Comando exclusivo de Development (requiere los catálogos Adulto y Mediano existentes):
+
+```powershell
+dotnet run --project VetWeb.csproj --configuration Release --launch-profile http -- --semilla-tutores
+```
+
+| Cuenta | Perros |
+| --- | --- |
+| lucia.demo@vetweb.invalid | Nala (demo), Toby (demo) |
+| martin.demo@vetweb.invalid | Mora (demo), Simón (demo) |
+| sofia.demo@vetweb.invalid | Olivia (demo), Roco (demo) |
+
+Contraseña inicial pública de desarrollo: `DemoVet2026!`. Se crean únicamente perfiles Tutor. Las seis mascotas tienen fotos genéricas ilustrativas (seis imágenes diferentes), grupo Adulto y tamaño Mediano. Las imágenes originales están en wwwroot/images/demo y se guardan copias mediante ImagenPerroService en el almacenamiento privado de perros.
+
+El comando no crea turnos, modifica cupos ni restablece contraseñas. Si el correo ya fue modificado o dado de baja se detiene; si un perro ya existe, incluso dado de baja, no lo duplica ni reemplaza su foto. No requiere migraciones.
+
+
+## Agenda de ejemplo de Alex
+
+Ejecutar en Development, después de --semilla-tutores:
+
+```powershell
+dotnet run --project VetWeb.csproj --configuration Release --launch-profile http -- --semilla-agenda
+```
+
+| Perro | Veterinario | Estado inicial | Visible en la agenda de Alex |
+| --- | --- | --- | --- |
+| Nala | Alex | Solicitado | Sí |
+| Toby | Alex | Confirmado | Sí |
+| Mora | No especifica | Solicitado | Sí |
+| Simón | No especifica | Confirmado | Sí |
+| Olivia | Marina | Solicitado | No |
+| Roco | Marina | Confirmado | No |
+
+Ingresar con doble.demo@vetweb.invalid, elegir Veterinario y abrir Mi agenda. Se reservan tres fechas futuras libres con cuatro cupos iniciales cada una; dos reservas por día dejan dos cupos disponibles. Los servicios se eligen entre los existentes. Cada alta y confirmación utiliza TurnoService. No se modifican cupos ni turnos anteriores. Repetir el comando conserva los estados de estos ejemplos y no los duplica; las fechas no se actualizan automáticamente con el paso del tiempo.
+
+
+Para actualizar únicamente las tres fotos repetidas de la carga anterior: agregar `--actualizar-fotos-demo` al comando `--semilla-tutores`. Se comprueba que el archivo actual coincida con la foto original repetida antes de sustituirlo. Las fotos personalizadas y las bajas se conservan. Al finalizar se cuentan imágenes distintas por SHA-256.
