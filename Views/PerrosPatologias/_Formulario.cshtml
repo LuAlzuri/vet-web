@@ -1,0 +1,20 @@
+@model VetWeb.Dtos.PerroPatologiaDto
+<div class="modal-header"><h2 class="modal-title fs-5">Guardar registro</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+<form asp-action="Guardar" method="post" data-crud><div class="modal-body">
+<div data-error class="alert alert-danger d-none" role="alert"></div><div asp-validation-summary="ModelOnly" class="text-danger"></div>
+<input asp-for="EsEdicion" type="hidden" />
+<input asp-for="PerroId" type="hidden" /><input asp-for="ContextoPerro" type="hidden" />
+<div class="mb-3"><label for="perroPatologiaNombre" class="form-label">Perro</label><input id="perroPatologiaNombre" class="form-control" value="@ViewBag.NombrePerro" readonly /><span asp-validation-for="PerroId" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="PatologiaId" class="form-label"></label><select disabled="@(Model.EsEdicion ? "disabled" : null)" data-catalogo-otro="nuevaPatologia" asp-for="PatologiaId" asp-items="ViewBag.Patologias" class="form-select"><option value="">Seleccionar</option></select><span asp-validation-for="PatologiaId" class="text-danger"></span></div>
+@if (!Model.EsEdicion) {
+<div id="nuevaPatologia" class="mb-3" hidden="@(Model.PatologiaId == -1 ? null : "hidden")">
+<label asp-for="NuevaPatologia" class="form-label"></label>
+<input asp-for="NuevaPatologia" class="form-control" maxlength="100" disabled="@(Model.PatologiaId == -1 ? null : "disabled")" />
+<span asp-validation-for="NuevaPatologia" class="text-danger"></span>
+<div class="form-text">Si la descripción ya existe, se usará esa opción sin duplicarla.</div>
+</div>
+}
+<div class="mb-3"><label asp-for="Controlado" class="form-label"></label><input asp-for="Controlado" class="form-check-input ms-2" /><span asp-validation-for="Controlado" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="Observacion" class="form-label"></label><textarea asp-for="Observacion" class="form-control"></textarea><span asp-validation-for="Observacion" class="text-danger"></span></div>
+@if (Model.EsEdicion) { <input asp-for="PatologiaId" type="hidden" /> }
+<p class="form-text">Para cambiar la patología de una asociación, eliminá la anterior y agregá una nueva.</p></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Guardar</button></div></form>

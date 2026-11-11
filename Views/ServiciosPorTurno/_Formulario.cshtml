@@ -1,0 +1,8 @@
+@model VetWeb.Dtos.ServicioPorTurnoDto
+<div class="modal-header"><h2 class="modal-title fs-5">Servicio del turno</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+<form asp-action="Guardar" method="post" data-crud><div class="modal-body"><div data-error class="alert alert-danger d-none" role="alert"></div><div asp-validation-summary="ModelOnly" class="text-danger"></div>
+<input asp-for="EsEdicion" type="hidden" /><input asp-for="TurnoId" type="hidden" />
+<div class="mb-3"><label asp-for="ServicioId" class="form-label"></label><select asp-for="ServicioId" asp-items="ViewBag.Servicios" disabled="@(Model.EsEdicion ? "disabled" : null)" class="form-select"><option value="">Seleccionar</option></select><span asp-validation-for="ServicioId" class="text-danger"></span></div>
+@if (Model.EsEdicion) { <input asp-for="ServicioId" type="hidden" /> }
+<div class="form-check"><input asp-for="Completado" class="form-check-input" /><label asp-for="Completado" class="form-check-label"></label></div>
+</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Guardar</button></div></form>

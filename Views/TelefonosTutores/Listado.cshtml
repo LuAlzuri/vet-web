@@ -1,0 +1,10 @@
+@model IEnumerable<VetWeb.Models.TelefonoTutor>
+@{ ViewData["Title"] = "Teléfonos de tutores"; }
+<div class="d-flex justify-content-between mb-3"><h1 class="h2">Teléfonos de tutores</h1><button class="btn btn-primary" data-form-url="@Url.Action("ObtenerFormulario")">Agregar</button></div>
+<partial name="_CrudModal" />
+<div class="table-responsive"><table class="table table-striped"><thead><tr><th>Tutor</th><th>Propietario</th><th>Teléfono</th><th>Acciones</th></tr></thead><tbody>
+@foreach (var item in Model) { <tr><td>@item.Tutor.Usuario.Apellido, @item.Tutor.Usuario.Nombre</td><td>@item.NombrePropietario</td><td>@item.Numero</td><td>
+<button class="btn btn-sm btn-outline-primary" data-form-url="@Url.Action("ObtenerFormulario", new { id = item.Id })">Editar</button>
+<button class="btn btn-sm btn-outline-danger" data-delete-url="@Url.Action("Eliminar", new { id = item.Id })">Eliminar</button></td></tr> }
+</tbody></table></div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /><script src="~/js/crud.js" asp-append-version="true"></script> }

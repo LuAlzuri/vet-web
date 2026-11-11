@@ -1,0 +1,20 @@
+@model VetWeb.Dtos.PerroDto
+<div class="modal-header"><h2 class="modal-title fs-5">Guardar registro</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+<form asp-action="Guardar" method="post" enctype="multipart/form-data" data-crud><div class="modal-body">
+<div data-error class="alert alert-danger d-none" role="alert"></div><div asp-validation-summary="ModelOnly" class="text-danger"></div>
+<input asp-for="Id" type="hidden" />
+@if (Model.TieneFoto) {
+    <div class="mb-3"><img src="@Url.Action("Foto", new { id = Model.Id })" alt="Foto de @Model.Nombre" class="rounded border" width="120" height="120" style="object-fit: cover" /></div>
+}
+<div class="mb-3"><label asp-for="Foto" class="form-label"></label>
+<input asp-for="Foto" type="file" class="form-control" accept="image/png,image/jpeg" />
+<span asp-validation-for="Foto" class="text-danger"></span>
+<div class="form-text">Opcional. PNG o JPG de hasta 2 MB. Al editar, la foto actual se conserva si no elegís otra. Si hay errores de validación, volvé a seleccionar el archivo.</div></div>
+<div class="mb-3"><label asp-for="Nombre" class="form-label"></label><input asp-for="Nombre" class="form-control" /><span asp-validation-for="Nombre" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="FechaNacimiento" class="form-label"></label><input asp-for="FechaNacimiento" class="form-control" /><span asp-validation-for="FechaNacimiento" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="TutorId" class="form-label"></label><select asp-for="TutorId" asp-items="ViewBag.Tutores" class="form-select"><option value="">Seleccionar</option></select><span asp-validation-for="TutorId" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="GrupoEtarioId" class="form-label"></label><select asp-for="GrupoEtarioId" asp-items="ViewBag.Grupos" class="form-select"><option value="">Seleccionar</option></select><span asp-validation-for="GrupoEtarioId" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="TamanioId" class="form-label"></label><select asp-for="TamanioId" asp-items="ViewBag.Tamanios" class="form-select"><option value="">Seleccionar</option></select><span asp-validation-for="TamanioId" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="Reactivo" class="form-label"></label><input asp-for="Reactivo" class="form-check-input ms-2" /><span asp-validation-for="Reactivo" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="CalendarioVacunasCompleto" class="form-label"></label><input asp-for="CalendarioVacunasCompleto" class="form-check-input ms-2" /><span asp-validation-for="CalendarioVacunasCompleto" class="text-danger"></span></div>
+</div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Guardar</button></div></form>

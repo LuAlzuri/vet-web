@@ -19,4 +19,10 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
     <PackageReference Include="QuestPDF" Version="2026.9.1" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="Tests/**/*.cs" />
+    <Content Remove="Tests/**" />
+    <Content Remove="App_Data/**" />
+    <None Remove="Tests/**" />
+  </ItemGroup>
 </Project>

@@ -5,6 +5,8 @@ namespace VetWeb.Models;
 
 public class ApplicationUser : IdentityUser
 {
+    public bool Activo { get; set; } = true;
+
     [Required(ErrorMessage = "El nombre es obligatorio.")]
     [StringLength(50, ErrorMessage = "El nombre no puede superar los 50 caracteres.")]
     [Display(Name = "Nombre")]

@@ -1,0 +1,5 @@
+@model IEnumerable<VetWeb.Models.Estado>
+@{ ViewData["Title"] = "Estados de los turnos"; }
+<h1 class="h2">Estados de los turnos</h1>
+<p>Los estados del circuito son fijos. Se actualiza el estado de un turno desde las acciones Confirmar, Rechazar, Cancelar y Completar.</p>
+<ul class="list-group">@foreach (var estado in Model) { <li class="list-group-item">@estado.Descripcion</li> }</ul>
