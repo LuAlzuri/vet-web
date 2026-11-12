@@ -44,6 +44,17 @@ public class TurnosApiController(TurnoService turnos, UserManager<ApplicationUse
         return await RespuestaCreacion(id);
     }
 
+    [HttpPut("{id:int}")]
+    [Authorize(Roles = "Veterinario")]
+    public async Task<IActionResult> Modificar(int id, TurnoDto dto)
+    {
+        if (dto.Id != 0 && dto.Id != id) return BadRequest();
+        if (!await Consultar().AnyAsync(x => x.Id == id)) return NotFound();
+        dto.Id = id;
+        await turnos.GuardarAsync(dto, UsuarioId, true);
+        return NoContent();
+    }
+
     [HttpPost("presencial")]
     [Authorize(Roles = "Veterinario")]
     public async Task<IActionResult> ReservarPresencial(TurnoDto dto)

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using VetWeb.Data;
 using VetWeb.Dtos;
 using VetWeb.Models;
+using VetWeb.Services;
 
 namespace VetWeb.Controllers;
 
@@ -11,7 +12,8 @@ namespace VetWeb.Controllers;
 public class GruposEtariosController : Controller
 {
     private readonly ApplicationDbContext _context;
-    public GruposEtariosController(ApplicationDbContext context) => _context = context;
+    private readonly CatalogoService<GrupoEtario> _catalogo;
+    public GruposEtariosController(ApplicationDbContext context, CatalogoService<GrupoEtario> catalogo) { _context = context; _catalogo = catalogo; }
     private void Preparar() { ViewBag.Titulo = "Grupos etarios"; ViewBag.Controlador = "GruposEtarios"; }
 
     public async Task<IActionResult> Listado()
@@ -40,21 +42,14 @@ public class GruposEtariosController : Controller
         if (await _context.GruposEtarios.AnyAsync(x => x.Id != dto.Id && x.Descripcion.ToLower() == dto.Descripcion.Trim().ToLower()))
             ModelState.AddModelError(nameof(dto.Descripcion), "Ya existe esa descripción.");
         if (!ModelState.IsValid) return PartialView("~/Views/Shared/_FormularioCatalogo.cshtml", dto);
-        var entidad = dto.Id == 0 ? new GrupoEtario() : await _context.GruposEtarios.FindAsync(dto.Id);
-        if (entidad is null) return NotFound();
-        entidad.Descripcion = dto.Descripcion.Trim();
-        if (dto.Id == 0) _context.GruposEtarios.Add(entidad);
-        await _context.SaveChangesAsync();
+        if (await _catalogo.GuardarAsync(dto) is null) return NotFound();
         return Json(new { success = true });
     }
 
     [HttpPost]
     public async Task<IActionResult> Eliminar(int id)
     {
-        var entidad = await _context.GruposEtarios.FindAsync(id);
-        if (entidad is null) return NotFound();
-        _context.GruposEtarios.Remove(entidad);
-        await _context.SaveChangesAsync();
+        if (!await _catalogo.EliminarAsync(id)) return NotFound();
         return Json(new { success = true });
     }
 }

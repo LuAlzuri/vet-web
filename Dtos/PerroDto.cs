@@ -4,8 +4,10 @@ public class PerroDto
 {
     public int Id { get; set; }
     [Display(Name = "Foto del perro")]
+    [System.Text.Json.Serialization.JsonIgnore]
     public IFormFile? Foto { get; set; }
     [Microsoft.AspNetCore.Mvc.ModelBinding.BindNever]
+    [System.Text.Json.Serialization.JsonIgnore]
     public bool TieneFoto { get; set; }
     [Required(ErrorMessage = "El nombre es obligatorio."), StringLength(100, ErrorMessage = "Máximo 100 caracteres.")]
     [Display(Name = "Nombre")]

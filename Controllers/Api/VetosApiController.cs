@@ -21,6 +21,14 @@ public class VetosApiController(ApplicationDbContext db, VetoService vetos, User
         return Ok(await vetos.ConsultarAsync(tutorId));
     }
 
+    [HttpGet("{vetoId:int}")]
+    public async Task<ActionResult<VetoDto>> Obtener(int tutorId, int vetoId)
+    {
+        if (!await db.Tutores.AnyAsync(x => x.Id == tutorId && x.Usuario.Activo)) return NotFound();
+        var veto = (await vetos.ConsultarAsync(tutorId)).SingleOrDefault(x => x.Id == vetoId);
+        return veto is null ? NotFound() : Ok(veto);
+    }
+
     [HttpPost]
     public async Task<IActionResult> Aplicar(int tutorId, MotivoVetoDto dto)
     {

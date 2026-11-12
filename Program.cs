@@ -17,6 +17,12 @@ builder.Services.AddControllersWithViews(options =>
 });
 builder.Services.AddRazorPages();
 builder.Services.AddScoped<VetWeb.Services.CuentaService>();
+builder.Services.AddScoped<VetWeb.Services.PerroService>();
+builder.Services.AddScoped<VetWeb.Services.CupoService>();
+builder.Services.AddScoped<VetWeb.Services.PerroPatologiaService>();
+builder.Services.AddScoped<VetWeb.Services.ServicioTurnoService>();
+builder.Services.AddScoped<VetWeb.Services.TelefonoTutorService>();
+builder.Services.AddScoped(typeof(VetWeb.Services.CatalogoService<>));
 builder.Services.AddScoped<VetWeb.Services.TurnoService>();
 builder.Services.AddScoped<VetWeb.Services.VetoService>();
 builder.Services.AddScoped<VetWeb.Services.AuditoriaService>();

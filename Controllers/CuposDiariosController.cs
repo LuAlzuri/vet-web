@@ -10,7 +10,8 @@ namespace VetWeb.Controllers;
 public class CuposDiariosController : Controller
 {
     private readonly ApplicationDbContext _context;
-    public CuposDiariosController(ApplicationDbContext context) => _context = context;
+    private readonly CupoService _cupos;
+    public CuposDiariosController(ApplicationDbContext context, CupoService cupos) { _context = context; _cupos = cupos; }
     public Task<IActionResult> Listado() => ListarAsync(false);
     [Authorize(Roles = "Tutor")]
     public Task<IActionResult> Disponibles() => ListarAsync(true);
@@ -33,19 +34,13 @@ public class CuposDiariosController : Controller
     {
         if (dto.FechaCupo < Reloj.Hoy) ModelState.AddModelError(nameof(dto.FechaCupo), "No se pueden publicar cupos en fechas pasadas.");
         if (!ModelState.IsValid) return PartialView("_Formulario", dto);
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-        var cupo = dto.Id == 0 ? new CupoDiario() : await _context.CuposDiarios.FromSqlInterpolated($"SELECT * FROM \"CuposDiarios\" WHERE \"Id\" = {dto.Id} FOR UPDATE").SingleOrDefaultAsync();
-        if (cupo is null) return NotFound();
-        if (dto.Id != 0 && cupo.FechaCupo != dto.FechaCupo!.Value.Date && await _context.Turnos.IgnoreQueryFilters().AnyAsync(x => x.CupoDiarioId == dto.Id))
-            throw new InvalidOperationException("No se puede cambiar la fecha de un cupo con turnos registrados.");
-        cupo.FechaCupo = dto.FechaCupo!.Value.Date; cupo.NumeroCuposDisponibles = dto.NumeroCuposDisponibles;
-        if (dto.Id == 0) _context.CuposDiarios.Add(cupo);
-        await _context.SaveChangesAsync(); await transaction.CommitAsync(); return Json(new { success = true });
+        if (await _cupos.GuardarAsync(dto) is null) return NotFound();
+        return Json(new { success = true });
     }
     [HttpPost, Authorize(Roles = "Veterinario")]
     public async Task<IActionResult> Eliminar(int id)
     {
-        var cupo = await _context.CuposDiarios.FindAsync(id); if (cupo is null) return NotFound();
-        _context.CuposDiarios.Remove(cupo); await _context.SaveChangesAsync(); return Json(new { success = true });
+        if (!await _cupos.EliminarAsync(id)) return NotFound();
+        return Json(new { success = true });
     }
 }
