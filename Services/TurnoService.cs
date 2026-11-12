@@ -10,14 +10,23 @@ public class TurnoService
     private readonly CatalogosFormularioService _catalogos;
     public TurnoService(ApplicationDbContext context, CatalogosFormularioService catalogos) { _context = context; _catalogos = catalogos; }
 
-    public async Task GuardarAsync(TurnoDto dto, string usuarioId, bool esVeterinario)
+    public IQueryable<Turno> ConsultarVisibles(string usuarioId, bool esVeterinario)
+    {
+        var turnos = _context.Turnos.IgnoreQueryFilters().AsNoTracking();
+        return esVeterinario
+            ? turnos.Where(x => x.VeterinarioId == null || x.Veterinario!.UserId == usuarioId)
+            : turnos.Where(x => x.Perro.Tutor.UserId == usuarioId);
+    }
+
+    public async Task<int> GuardarAsync(TurnoDto dto, string usuarioId, bool esVeterinario)
     {
         if (!esVeterinario && (dto.TratamientoId is not null || !string.IsNullOrWhiteSpace(dto.NuevoTratamiento)))
             throw new InvalidOperationException("El tratamiento debe registrarlo el veterinario.");
         if (dto.Id != 0)
         {
             if (!esVeterinario) throw new InvalidOperationException("Solo el veterinario puede editar un turno solicitado.");
-            await EditarAsync(dto, usuarioId); return;
+            await EditarAsync(dto, usuarioId);
+            return dto.Id;
         }
         await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var perro = await _context.Perros.Include(x => x.Tutor).ThenInclude(x => x.Usuario).SingleOrDefaultAsync(x => x.Id == dto.PerroId);
@@ -44,6 +53,7 @@ public class TurnoService
         await _context.SaveChangesAsync();
         foreach (var servicio in servicios) _context.ServiciosPorTurno.Add(new ServicioPorTurno { TurnoId = turno.Id, ServicioId = servicio });
         await _context.SaveChangesAsync(); await transaction.CommitAsync();
+        return turno.Id;
     }
 
     private async Task EditarAsync(TurnoDto dto, string usuarioId)
@@ -67,7 +77,7 @@ public class TurnoService
         await _context.Turnos.FromSqlInterpolated($"SELECT * FROM \"Turnos\" WHERE \"Id\" = {id} FOR UPDATE").SingleOrDefaultAsync()
         ?? throw new InvalidOperationException("No se encontró un turno disponible.");
 
-    public async Task CambiarEstadoAsync(int id, int destino, string usuarioId, bool esVeterinario)
+    public async Task CambiarEstadoAsync(int id, int destino, string usuarioId, bool esVeterinario, int? cantidad = null)
     {
         await using var transaction = await _context.Database.BeginTransactionAsync();
         var turno = await BloquearTurnoAsync(id);
@@ -80,11 +90,21 @@ public class TurnoService
                 || turno.EstadoId == EstadosTurno.Confirmado && (destino == EstadosTurno.Completado || destino == EstadosTurno.CanceladoVeterinario)
             : EstadosTurno.Activo(turno.EstadoId);
         if (!permitido) throw new InvalidOperationException("El turno ya cambió de estado o la transición no está permitida.");
-        if (destino == EstadosTurno.Rechazado || destino == EstadosTurno.CanceladoTutor || destino == EstadosTurno.CanceladoVeterinario)
+        if (cantidad is not null && (destino != EstadosTurno.Confirmado || cantidad < 1))
+            throw new InvalidOperationException("La cantidad de plazas debe ser mayor que cero y solo se ajusta al confirmar.");
+        var liberaReserva = destino is EstadosTurno.Rechazado or EstadosTurno.CanceladoTutor or EstadosTurno.CanceladoVeterinario;
+        if (liberaReserva || cantidad is not null && cantidad != turno.CantidadReservada)
         {
             var cupo = await _context.CuposDiarios.FromSqlInterpolated($"SELECT * FROM \"CuposDiarios\" WHERE \"Id\" = {turno.CupoDiarioId} FOR UPDATE").SingleAsync();
-            cupo.NumeroCuposDisponibles++;
+            var nuevoDisponible = (long)cupo.NumeroCuposDisponibles + turno.CantidadReservada;
+            if (!liberaReserva) nuevoDisponible -= cantidad!.Value;
+            if (nuevoDisponible < 0)
+                throw new InvalidOperationException("No quedan suficientes plazas para confirmar el turno.");
+            if (nuevoDisponible > int.MaxValue)
+                throw new InvalidOperationException("La cantidad de plazas supera el máximo permitido.");
+            cupo.NumeroCuposDisponibles = (int)nuevoDisponible;
         }
+        if (cantidad is not null) turno.CantidadReservada = cantidad.Value;
         turno.EstadoId = destino;
         await _context.SaveChangesAsync(); await transaction.CommitAsync();
     }

@@ -579,6 +579,11 @@ namespace VetWeb.Data.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("CantidadReservada")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
                     b.Property<int>("CupoDiarioId")
                         .HasColumnType("integer");
 
@@ -610,7 +615,10 @@ namespace VetWeb.Data.Migrations
 
                     b.HasIndex("VeterinarioId");
 
-                    b.ToTable("Turnos", (string)null);
+                    b.ToTable("Turnos", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Turnos_CantidadReservada", "\"CantidadReservada\" >= 1");
+                        });
                 });
 
             modelBuilder.Entity("VetWeb.Models.Tutor", b =>
