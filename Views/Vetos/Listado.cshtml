@@ -25,12 +25,13 @@ else
 {
     <div class="table-responsive">
         <table class="table table-striped">
-            <thead><tr><th>Inicio</th><th>Motivo</th><th>Estado</th><th>Fin</th><th>Motivo de finalización</th></tr></thead>
+            <thead><tr><th>Inicio</th><th>Origen</th><th>Motivo</th><th>Estado</th><th>Fin</th><th>Motivo de finalización</th></tr></thead>
             <tbody>
             @foreach (var veto in Model)
             {
                 <tr>
                     <td>@veto.FechaInicio.ToString("dd/MM/yyyy HH:mm") UTC</td>
+                    <td>@(veto.VeterinarioId is null ? "Automático" : "Manual")</td>
                     <td>@veto.Motivo</td>
                     <td>@(veto.Vigente ? "Vigente" : "No vigente")</td>
                     <td>@(veto.FechaFin?.ToString("dd/MM/yyyy HH:mm") is string fin ? fin + " UTC" : "—")</td>

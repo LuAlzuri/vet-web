@@ -8,6 +8,7 @@ public class AuditoriaAccion
     public const string ReservaPresencial = "ReservaPresencial";
     public const string TurnoEditado = "TurnoEditado";
     public const string EstadoTurnoCambiado = "EstadoTurnoCambiado";
+    public const string VetoAutomaticoAplicado = "VetoAutomaticoAplicado";
     public const string VetoAplicado = "VetoAplicado";
     public const string VetoLevantado = "VetoLevantado";
 
