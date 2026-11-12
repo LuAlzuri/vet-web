@@ -19,8 +19,12 @@ public static class SemillaTutoresDemo
             throw new InvalidOperationException("Aplicá las migraciones antes de cargar los tutores demo.");
 
         // Usar catálogos existentes; esta semilla no altera sus opciones.
-        var grupo = await db.GruposEtarios.SingleAsync(x => x.Descripcion == "Adulto");
-        var tamanio = await db.Tamanios.SingleAsync(x => x.Descripcion == "Mediano");
+        var grupo = await db.GruposEtarios.SingleOrDefaultAsync(x => x.Descripcion == "Adulto")
+            ?? await db.GruposEtarios.SingleOrDefaultAsync(x => x.Descripcion == "Demo - Adulto");
+        var tamanio = await db.Tamanios.SingleOrDefaultAsync(x => x.Descripcion == "Mediano")
+            ?? await db.Tamanios.SingleOrDefaultAsync(x => x.Descripcion == "Demo - Mediano");
+        if (grupo is null || tamanio is null)
+            throw new InvalidOperationException("Ejecutá --semilla-demo primero o cargá los catálogos Adulto y Mediano.");
         var datos = new[] {
             (Email: "lucia.demo@vetweb.invalid", Nombre: "Lucía", Apellido: "Demo", Perros: new[] { "Nala (demo)", "Toby (demo)" }),
             (Email: "martin.demo@vetweb.invalid", Nombre: "Martín", Apellido: "Demo", Perros: new[] { "Mora (demo)", "Simón (demo)" }),
@@ -59,19 +63,18 @@ public static class SemillaTutoresDemo
                 var foto = fotos[indice++ % fotos.Count];
                 // Incluir bajas evita recrear mascotas que alguien eliminó deliberadamente.
                 var nombreSinMarca = nombre.Replace(" (demo)", "");
-                var existente = await db.Perros.IgnoreQueryFilters().SingleOrDefaultAsync(x => x.TutorId == tutor.Id
+                var existente = await db.Perros.IgnoreQueryFilters().Include(x => x.Imagen).SingleOrDefaultAsync(x => x.TutorId == tutor.Id
                     && (x.Nombre == nombre || x.Nombre == nombreSinMarca));
                 if (existente is not null)
                 {
                     // Solo reemplazar las copias repetidas originales, nunca una foto personalizada.
-                    if (actualizarFotos && indice > 3 && !existente.Eliminado && existente.FotoArchivo is not null
-                        && File.Exists(imagenes.Ruta(existente.FotoArchivo))
-                        && (await File.ReadAllBytesAsync(imagenes.Ruta(existente.FotoArchivo))).AsSpan()
+                    if (actualizarFotos && indice > 3 && !existente.Eliminado && existente.Imagen is not null
+                        && File.Exists(imagenes.Ruta(existente.Imagen.NombreArchivo))
+                        && (await File.ReadAllBytesAsync(imagenes.Ruta(existente.Imagen.NombreArchivo))).AsSpan()
                             .SequenceEqual(fotos[(indice - 1) % 3].Contenido))
                     {
-                        var anterior = existente.FotoArchivo;
-                        var nueva = await imagenes.GuardarAsync(foto);
-                        existente.FotoArchivo = nueva;
+                        var anterior = existente.Imagen.NombreArchivo;
+                        var nueva = await imagenes.AsignarAsync(existente, foto);
                         try { await db.SaveChangesAsync(); }
                         catch { imagenes.Eliminar(nueva); throw; }
                         imagenes.Eliminar(anterior);
@@ -81,10 +84,10 @@ public static class SemillaTutoresDemo
                     continue;
                 }
                 if (actualizarFotos) throw new InvalidOperationException("No se encontró el perro demo. La actualización de fotos no crea perros.");
-                var archivo = await imagenes.GuardarAsync(foto);
                 var perro = new Perro { Nombre = nombre, TutorId = tutor.Id, GrupoEtarioId = grupo.Id,
                     TamanioId = tamanio.Id, FechaNacimiento = Reloj.Hoy.AddYears(-2 - indice),
-                    CalendarioVacunasCompleto = true, Reactivo = false, FotoArchivo = archivo };
+                    CalendarioVacunasCompleto = true, Reactivo = false };
+                var archivo = await imagenes.AsignarAsync(perro, foto);
                 db.Perros.Add(perro);
                 try { await db.SaveChangesAsync(); }
                 catch { imagenes.Eliminar(archivo); throw; }
@@ -96,7 +99,7 @@ public static class SemillaTutoresDemo
         Console.WriteLine($"Semilla terminada: {creados} perros nuevos y {fotosActualizadas} fotos actualizadas.");
         var correos = datos.Select(x => x.Email).ToArray();
         var archivos = await db.Perros.Where(x => correos.Contains(x.Tutor.Usuario.Email!))
-            .Select(x => x.FotoArchivo).ToListAsync();
+            .Select(x => x.Imagen == null ? null : x.Imagen.NombreArchivo).ToListAsync();
         var huellas = new HashSet<string>();
         foreach (var archivo in archivos)
             if (archivo is not null && File.Exists(imagenes.Ruta(archivo)))

@@ -56,9 +56,32 @@ builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Identity/Cuenta/Ingresar";
     options.AccessDeniedPath = "/Identity/Cuenta/AccesoDenegado";
+    var redirigirAlIngreso = options.Events.OnRedirectToLogin;
+    var redirigirAccesoDenegado = options.Events.OnRedirectToAccessDenied;
+    options.Events.OnRedirectToLogin = context =>
+    {
+        if (!context.Request.Path.StartsWithSegments("/api"))
+            return redirigirAlIngreso(context);
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        if (!context.Request.Path.StartsWithSegments("/api"))
+            return redirigirAccesoDenegado(context);
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return Task.CompletedTask;
+    };
 });
 
 var app = builder.Build();
+
+if (args.Contains("--crear-administrador"))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    await InicializadorIdentity.CrearAdministradorAsync(scope.ServiceProvider, builder.Configuration);
+    return;
+}
 
 if (args.Contains("--semilla-agenda"))
 {

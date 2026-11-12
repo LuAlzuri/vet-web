@@ -43,7 +43,7 @@ public class CuentaActivaMiddleware
                     && !path.StartsWithSegments("/Identity/Cuenta/Ingresar")
                     && !path.StartsWithSegments("/Identity/Cuenta/AccesoDenegado"))
                 {
-                    if (context.Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                    if (EsSolicitudDeDatos(context))
                     {
                         context.Response.StatusCode = StatusCodes.Status409Conflict;
                         await context.Response.WriteAsJsonAsync(new { mensaje = "Elegí el rol con el que vas a trabajar en esta sesión." });
@@ -59,11 +59,15 @@ public class CuentaActivaMiddleware
     private static async Task CerrarAsync(HttpContext context, SignInManager<ApplicationUser> sesiones)
     {
         await sesiones.SignOutAsync();
-        if (context.Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+        if (EsSolicitudDeDatos(context))
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             await context.Response.WriteAsJsonAsync(new { mensaje = "Tu sesión terminó. Iniciá sesión nuevamente." });
         }
         else context.Response.Redirect("/Identity/Cuenta/Ingresar");
     }
+
+    private static bool EsSolicitudDeDatos(HttpContext context) =>
+        context.Request.Path.StartsWithSegments("/api") ||
+        context.Request.Headers["X-Requested-With"] == "XMLHttpRequest";
 }

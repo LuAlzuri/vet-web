@@ -7,7 +7,7 @@ using VetWeb.Dtos;
 using VetWeb.Models;
 using VetWeb.Services;
 namespace VetWeb.Controllers;
-[Authorize(Roles = "Veterinario")]
+[Authorize(Roles = RolSesion.Administrador)]
 public class VeterinariosController : Controller
 {
     private readonly ApplicationDbContext _context;

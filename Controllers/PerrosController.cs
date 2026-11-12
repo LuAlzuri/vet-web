@@ -25,21 +25,21 @@ public class PerrosController : Controller
     {
         ViewBag.Personal = personal || !User.IsInRole("Veterinario");
         var query = _context.Perros.AsNoTracking().Include(x => x.Tutor).ThenInclude(x => x.Usuario)
-            .Include(x => x.GrupoEtario).Include(x => x.Tamanio).AsQueryable();
+            .Include(x => x.Imagen).Include(x => x.GrupoEtario).Include(x => x.Tamanio).AsQueryable();
         if (personal || !User.IsInRole("Veterinario")) query = query.Where(x => x.Tutor.UserId == _usuarios.GetUserId(User));
         return View("Listado", await query.OrderBy(x => x.Nombre).ToListAsync());
     }
     [HttpGet]
     public async Task<IActionResult> Foto(int id)
     {
-        var perro = await _context.Perros.AsNoTracking().Include(x => x.Tutor).SingleOrDefaultAsync(x => x.Id == id);
-        if (perro is null || perro.FotoArchivo is null) return NotFound();
+        var perro = await _context.Perros.AsNoTracking().Include(x => x.Tutor).Include(x => x.Imagen).SingleOrDefaultAsync(x => x.Id == id);
+        if (perro is null || perro.Imagen is null) return NotFound();
         if (!User.IsInRole("Veterinario") && perro.Tutor.UserId != _usuarios.GetUserId(User)) return Forbid();
-        var ruta = _imagenes.Ruta(perro.FotoArchivo);
+        var ruta = _imagenes.Ruta(perro.Imagen.NombreArchivo);
         if (!System.IO.File.Exists(ruta)) return NotFound();
         Response.Headers["Cache-Control"] = "private, no-store";
         Response.Headers["X-Content-Type-Options"] = "nosniff";
-        return PhysicalFile(ruta, perro.FotoArchivo.EndsWith(".png") ? "image/png" : "image/jpeg");
+        return PhysicalFile(ruta, perro.Imagen.TipoContenido);
     }
 
     private async Task Preparar()
@@ -54,9 +54,9 @@ public class PerrosController : Controller
     {
         await Preparar();
         if (id == 0) return PartialView("_Formulario", new PerroDto());
-        var x = await _context.Perros.FindAsync(id);
+        var x = await _context.Perros.Include(x => x.Imagen).SingleOrDefaultAsync(x => x.Id == id);
         if (x is null) return NotFound();
-        return PartialView("_Formulario", new PerroDto { Id = x.Id, TieneFoto = x.FotoArchivo != null, Nombre = x.Nombre, FechaNacimiento = x.FechaNacimiento,
+        return PartialView("_Formulario", new PerroDto { Id = x.Id, TieneFoto = x.Imagen != null, Nombre = x.Nombre, FechaNacimiento = x.FechaNacimiento,
             TutorId = x.TutorId, GrupoEtarioId = x.GrupoEtarioId, TamanioId = x.TamanioId, Reactivo = x.Reactivo, CalendarioVacunasCompleto = x.CalendarioVacunasCompleto });
     }
     [HttpPost, Authorize(Roles = "Veterinario")]
@@ -77,11 +77,11 @@ public class PerrosController : Controller
         }
         if (!ModelState.IsValid)
         {
-            dto.TieneFoto = dto.Id != 0 && await _context.Perros.AnyAsync(x => x.Id == dto.Id && x.FotoArchivo != null);
+            dto.TieneFoto = dto.Id != 0 && await _context.Perros.AnyAsync(x => x.Id == dto.Id && x.Imagen != null);
             await Preparar(); return PartialView("_Formulario", dto);
         }
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-        var perro = dto.Id == 0 ? new Perro() : await _context.Perros.FindAsync(dto.Id);
+        await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        var perro = dto.Id == 0 ? new Perro() : await _context.Perros.Include(x => x.Imagen).SingleOrDefaultAsync(x => x.Id == dto.Id);
         if (perro is null) return NotFound();
         if (dto.Id != 0 && perro.TutorId != dto.TutorId && await _context.Turnos.IgnoreQueryFilters().AnyAsync(x => x.PerroId == dto.Id))
             throw new InvalidOperationException("No se puede cambiar el tutor de un perro con historial de turnos.");
@@ -90,11 +90,11 @@ public class PerrosController : Controller
         perro.GrupoEtarioId = dto.GrupoEtarioId;
         perro.TamanioId = dto.TamanioId;
         perro.Reactivo = dto.Reactivo; perro.CalendarioVacunasCompleto = dto.CalendarioVacunasCompleto;
-        var fotoAnterior = perro.FotoArchivo;
+        var fotoAnterior = perro.Imagen?.NombreArchivo;
         string? fotoNueva = null;
         try
         {
-            if (foto is not null) { fotoNueva = await _imagenes.GuardarAsync(foto); perro.FotoArchivo = fotoNueva; }
+            if (foto is not null) fotoNueva = await _imagenes.AsignarAsync(perro, foto);
             if (dto.Id == 0) _context.Perros.Add(perro);
             await _context.SaveChangesAsync(); await transaction.CommitAsync();
         }

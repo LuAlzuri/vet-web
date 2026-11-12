@@ -52,6 +52,7 @@ public class CuentaService
                 Comprobar(await _usuarios.CreateAsync(usuario, dto.Password));
             }
         }
+        await ProtegerCuentaAdministrativaAsync(usuario);
         // Al vincular otro perfil se conservan los datos y contraseña de la cuenta existente.
         if (dto.Id != 0)
         {
@@ -78,6 +79,7 @@ public class CuentaService
         var profesional = veterinario ? await _context.Veterinarios.Include(x => x.Usuario).SingleOrDefaultAsync(x => x.Id == id) : null;
         var usuario = veterinario ? profesional?.Usuario : tutor?.Usuario;
         if (usuario is null) throw new InvalidOperationException("No se encontró la cuenta.");
+        await ProtegerCuentaAdministrativaAsync(usuario);
         if (usuario.Id == usuarioActualId) throw new InvalidOperationException("No podés dar de baja tu propia cuenta desde esta pantalla.");
         if (await _usuarios.IsInRoleAsync(usuario, "Veterinario") && !await _context.Veterinarios.AnyAsync(x => x.UserId != usuario.Id && x.Usuario.Activo))
             throw new InvalidOperationException("No se puede dar de baja al último veterinario activo.");
@@ -91,5 +93,11 @@ public class CuentaService
         Comprobar(await _usuarios.UpdateSecurityStampAsync(usuario));
         await _context.SaveChangesAsync();
         await transaction.CommitAsync();
+    }
+
+    private async Task ProtegerCuentaAdministrativaAsync(ApplicationUser usuario)
+    {
+        if (await _usuarios.IsInRoleAsync(usuario, RolSesion.Administrador))
+            throw new InvalidOperationException("Las cuentas administrativas se gestionan fuera de los formularios de perfiles.");
     }
 }

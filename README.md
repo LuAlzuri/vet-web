@@ -64,12 +64,23 @@ dotnet run --project VetWeb.csproj --launch-profile http -- --crear-veterinario
 
 El comando crea la cuenta de Identity y le asigna el rol Veterinario; no crea el perfil profesional ni su matrícula. En esta base local el perfil inicial ya está creado. En otra instalación deberá completarse antes de asignar turnos a ese profesional. El comando termina sin iniciar el servidor. Repetirlo no cambia datos ni contraseña de la cuenta existente. Quitar los secretos VeterinarioInicial después de la creación y conservar la conexión.
 
+## Cuenta administrativa inicial
+
+La migración `AgregarRolAdministrador` agrega el rol a Identity. Una vez aplicada, configurar en los secretos de usuario `AdministradorInicial:Email`, `AdministradorInicial:Nombre`, `AdministradorInicial:Apellido` y `AdministradorInicial:Password`. Usar un correo nuevo y una contraseña que cumpla la política de Identity. Ejecutar:
+
+```powershell
+dotnet run --project VetWeb.csproj --launch-profile http -- --crear-administrador
+```
+
+El comando crea la primera cuenta administrativa y termina. Después se pueden quitar esos secretos de inicialización. Las cuentas administrativas quedan protegidas frente a ediciones, vinculaciones y bajas desde los formularios de perfiles.
+
 ## Pantallas y permisos
+
+Administrador gestiona las altas, consultas, ediciones y bajas de veterinarios. Su menú y sus permisos se habilitan al elegir ese rol, igual que para Tutor y Veterinario. Auditoría e informes se incorporarán en sus respectivos hitos.
 
 | Sección | Veterinario | Tutor |
 | --- | --- | --- |
 | Tutores y teléfonos | Alta, consulta, edición y baja | Sin acceso administrativo |
-| Veterinarios | Alta, consulta, edición y baja | Sin acceso administrativo |
 | Perros | Alta, consulta, edición y baja lógica | Consulta de sus perros |
 | Patologías por perro | Alta, consulta, edición y eliminación | Sin administración |
 | Servicios | CRUD desde el menú | Elegir servicios existentes al solicitar turno |
@@ -192,7 +203,11 @@ Las pruebas HTTP verificaron dos agendas independientes, el bloqueo de acceso y 
 
 El alta y la edición permiten adjuntar una foto opcional en PNG o JPG de hasta 2 MB. Se valida el tamaño, la extensión y la firma del archivo; no se admite SVG. Al editar sin seleccionar otro archivo se conserva la imagen actual. Una carga inválida no modifica la foto guardada. Al reemplazarla, se elimina el archivo anterior solo después de confirmar el guardado de la base.
 
-FotoArchivo guarda únicamente un nombre generado, nunca el nombre o la ruta enviados por el navegador. Las imágenes se guardan por defecto en App_Data/Perros, fuera de wwwroot y del repositorio. La carpeta puede configurarse mediante FotosPerros:Directorio. Debe conservarse y respaldarse junto con la base al mover o publicar la aplicación; la migración no contiene los archivos de imagen.
+La entidad `Imagen` almacena el nombre generado, el tipo de contenido y el tamaño. La relación en el DER es `Perro 1 → 0..1 Imagen`, con `Imagen.PerroId` único. Los archivos se guardan en `App_Data/Perros`, fuera de `wwwroot`, o en el directorio configurado mediante `FotosPerros:Directorio`.
+
+La migración `AgregarEntidadImagen` crea `Imagenes` y retira `Perros.FotoArchivo`. Está prevista para una base nueva. Al aplicarla a una base existente se pierden las referencias de las fotos anteriores. EF Core no elimina los archivos del disco.
+
+La API de VetWeb ofrece `GET /api/perros/{perroId}/imagen` para consultar una foto, `POST` con multipart y campo `archivo` para cargarla o reemplazarla, y `DELETE` para quitarla. Usa la cookie de Identity de VetWeb. El tutor solo consulta imágenes de sus perros. La carga y el borrado requieren el rol Veterinario activo y token antifalsificación de la sesión.
 
 La acción Perros/Foto verifica autenticación, rol activo y pertenencia: el veterinario puede consultar las fotos de los perros y el tutor solo las de sus mascotas. Las imágenes no se exponen como archivos estáticos y se envían con caché privada deshabilitada y tipo de contenido explícito. La baja lógica del perro conserva su archivo, pero deja de servirlo desde la consulta normal.
 

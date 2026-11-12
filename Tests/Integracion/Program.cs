@@ -47,6 +47,16 @@ try
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         await db.Database.MigrateAsync();
         Verificar(!(await db.Database.GetPendingMigrationsAsync()).Any(), "Quedaron migraciones pendientes.");
+        var configAdmin = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["AdministradorInicial:Email"] = "admin@prueba.invalid",
+            ["AdministradorInicial:Nombre"] = "Admin",
+            ["AdministradorInicial:Apellido"] = "Prueba",
+            ["AdministradorInicial:Password"] = password
+        }).Build();
+        await InicializadorIdentity.CrearAdministradorAsync(scope.ServiceProvider, configAdmin);
+        await Rechazar(() => InicializadorIdentity.CrearAdministradorAsync(scope.ServiceProvider, configAdmin),
+            "Se permitió repetir la creación del administrador inicial.");
         var cuentas = scope.ServiceProvider.GetRequiredService<CuentaService>();
         await cuentas.GuardarAsync(new CuentaDto { Nombre = "Vet", Apellido = "Prueba", Email = "vet@prueba.invalid", Password = password, Matricula = 12345 }, true);
         await cuentas.GuardarAsync(new CuentaDto { Nombre = "Tutor", Apellido = "Prueba", Email = "tutor@prueba.invalid", Password = password }, false);
@@ -138,7 +148,7 @@ try
     }
     using var vet = Cliente(); using var tutorCliente = Cliente(); using var dualCliente = Cliente();
     await Ingresar(vet, "vet@prueba.invalid"); await Ingresar(tutorCliente, "tutor@prueba.invalid"); await Ingresar(dualCliente, "dual@prueba.invalid");
-    foreach(var controller in new[]{"Tutores","Veterinarios","Perros","TelefonosTutores","PerrosPatologias","GruposEtarios","Tamanios","Patologias","Estados","Tratamientos","Servicios","CuposDiarios","Turnos"})
+    foreach(var controller in new[]{"Tutores","Perros","TelefonosTutores","PerrosPatologias","GruposEtarios","Tamanios","Patologias","Estados","Tratamientos","Servicios","CuposDiarios","Turnos"})
     {
         using var response = await vet.GetAsync($"/{controller}/Listado");
         Verificar(response.StatusCode == HttpStatusCode.OK, "Falló listado " + controller);
@@ -148,6 +158,26 @@ try
         else Verificar(formulario.StatusCode == HttpStatusCode.OK, "Falló formulario " + controller);
     }
     var prohibido = await tutorCliente.GetAsync("/Tutores/Listado");
+    using var administrador = Cliente();
+    await Ingresar(administrador, "admin@prueba.invalid");
+    var tokenAdmin = await Token(administrador, "/Veterinarios/ObtenerFormulario");
+    Verificar((await administrador.GetAsync("/Veterinarios/Listado")).IsSuccessStatusCode, "El administrador no puede gestionar veterinarios.");
+    var datosVet = new Dictionary<string, string>
+    {
+        ["__RequestVerificationToken"] = tokenAdmin, ["Nombre"] = "Alta", ["Apellido"] = "Administrativa",
+        ["Email"] = "alta-vet@prueba.invalid", ["Password"] = password, ["Matricula"] = "67890"
+    };
+    var altaVet = await administrador.PostAsync("/Veterinarios/Guardar", new FormUrlEncodedContent(datosVet));
+    Verificar(altaVet.IsSuccessStatusCode && (await altaVet.Content.ReadAsStringAsync()).Contains("\"success\":true"),
+        "Falló el alta administrativa de un veterinario.");
+    datosVet["__RequestVerificationToken"] = await Token(vet, "/Tutores/ObtenerFormulario");
+    foreach (var respuesta in new[] {
+        await vet.GetAsync("/Veterinarios/Listado"),
+        await vet.PostAsync("/Veterinarios/Guardar", new FormUrlEncodedContent(datosVet)),
+        await administrador.GetAsync("/Tutores/Listado"),
+        await administrador.GetAsync("/Turnos/Listado") })
+        Verificar(respuesta.StatusCode == HttpStatusCode.Redirect && respuesta.Headers.Location!.ToString().Contains("AccesoDenegado"),
+            "Un rol pudo acceder a una operación que pertenece a otro.");
     Verificar(prohibido.StatusCode == HttpStatusCode.Redirect && prohibido.Headers.Location!.ToString().Contains("AccesoDenegado"), "El tutor accede a administración.");
     var registro = await anon.GetAsync("/Identity/Account/Register"); Verificar(registro.StatusCode == HttpStatusCode.NotFound, "Registro público habilitado.");
     var sinToken = await vet.PostAsync("/Servicios/Guardar", new FormUrlEncodedContent(new Dictionary<string,string>{{"Descripcion","Sin token"}}));
@@ -234,8 +264,9 @@ try
     string archivoInicial;
     await using(var scope = provider.CreateAsyncScope())
     {
-        var perro = await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Perros.SingleAsync(x=>x.Nombre == "Perro con foto");
-        perroFoto = perro.Id; archivoInicial = perro.FotoArchivo!;
+        var perro = await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Perros
+            .Include(x => x.Imagen).SingleAsync(x => x.Nombre == "Perro con foto");
+        perroFoto = perro.Id; archivoInicial = perro.Imagen!.NombreArchivo;
         Verificar(Regex.IsMatch(archivoInicial, "^[a-f0-9]{32}\\.png$"), "Se conservó el nombre original del archivo.");
     }
     using var propietarioFoto = Cliente(); await Ingresar(propietarioFoto, "http@prueba.invalid");
@@ -252,7 +283,7 @@ try
         Verificar(reemplazo.IsSuccessStatusCode && (await reemplazo.Content.ReadAsStringAsync()).Contains("true"), "No se pudo reemplazar la foto.");
     string archivoReemplazado;
     await using(var scope = provider.CreateAsyncScope())
-        archivoReemplazado = (await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Perros.SingleAsync(x=>x.Id == perroFoto)).FotoArchivo!;
+        archivoReemplazado = (await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Imagenes.SingleAsync(x=>x.PerroId == perroFoto)).NombreArchivo!;
     Verificar(archivoReemplazado != archivoInicial && File.Exists(Path.Combine(directorioFotosPrueba, archivoReemplazado))
         && !File.Exists(Path.Combine(directorioFotosPrueba, archivoInicial)), "El reemplazo no guardó la nueva foto o dejó la anterior.");
     await Exito("/Perros/Guardar", new() { ["Id"] = perroFoto.ToString(), ["Nombre"] = "Perro con foto", ["FechaNacimiento"] = fecha,
@@ -264,13 +295,36 @@ try
         Verificar(response.IsSuccessStatusCode && (await response.Content.ReadAsStringAsync()).Contains("field-validation-error"), "Se aceptó una imagen inválida o demasiado grande.");
     }
     await using(var scope = provider.CreateAsyncScope())
-        Verificar((await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Perros.SingleAsync(x=>x.Id == perroFoto)).FotoArchivo == archivoReemplazado,
+        Verificar((await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Imagenes.SingleAsync(x=>x.PerroId == perroFoto)).NombreArchivo == archivoReemplazado,
             "Editar sin imagen o rechazar un archivo perdió la foto guardada.");
     Verificar(Directory.GetFiles(directorioFotosPrueba).Length == 1, "Quedaron archivos de cargas inválidas.");
     var tarjetas = await (await propietarioFoto.GetAsync("/Perros/MisPerros")).Content.ReadAsStringAsync();
     Verificar(tarjetas.Contains("perro-card") && tarjetas.Contains("perro-card-datos") && tarjetas.Contains("Vacunas completas") && tarjetas.Contains("Historial"),
         "La tarjeta no muestra sus datos o el historial.");
     Console.WriteLine("Fotos y tarjetas: carga, reemplazo, conservación, formatos y tamaño, acceso privado y datos de la card verificados.");
+    var rutaImagenApi = $"/api/perros/{perroFoto}/imagen";
+    using (var imagenApi = await propietarioFoto.GetAsync(rutaImagenApi))
+        Verificar(imagenApi.IsSuccessStatusCode && (await imagenApi.Content.ReadAsByteArrayAsync()).SequenceEqual(pngPrueba),
+            "La API no comparte la foto cargada desde la web.");
+    Verificar((await anon.GetAsync(rutaImagenApi)).StatusCode == HttpStatusCode.Unauthorized, "La API debe exigir una sesión.");
+    Verificar((await tutorCliente.GetAsync(rutaImagenApi)).StatusCode == HttpStatusCode.Forbidden, "La API expuso una foto ajena.");
+    Verificar((await propietarioFoto.DeleteAsync(rutaImagenApi)).StatusCode == HttpStatusCode.Forbidden, "El tutor pudo intentar quitar una foto.");
+    Verificar((await vet.DeleteAsync(rutaImagenApi)).StatusCode == HttpStatusCode.BadRequest, "La API permitió quitar una foto sin antifalsificación.");
+    using (var multipart = new MultipartFormDataContent())
+    {
+        multipart.Add(new StringContent(tokenCatalogo), "__RequestVerificationToken");
+        multipart.Add(new ByteArrayContent(pngPrueba), "Archivo", "reemplazo-api.png");
+        using var cargaApi = await vet.PostAsync(rutaImagenApi, multipart);
+        Verificar(cargaApi.IsSuccessStatusCode, "La API no pudo reemplazar la imagen.");
+    }
+    using (var quitar = new HttpRequestMessage(HttpMethod.Delete, rutaImagenApi))
+    {
+        quitar.Headers.Add("RequestVerificationToken", tokenCatalogo);
+        using var respuesta = await vet.SendAsync(quitar);
+        Verificar(respuesta.StatusCode == HttpStatusCode.NoContent, "La API no pudo quitar la imagen.");
+    }
+    Verificar((await propietarioFoto.GetAsync("/Perros/Foto?id=" + perroFoto)).StatusCode == HttpStatusCode.NotFound
+        && Directory.GetFiles(directorioFotosPrueba).Length == 0, "Quedó una referencia o un archivo tras quitar la imagen.");
     await Exito("/PerrosPatologias/Guardar", new() { ["PerroId"] = perroHttp.ToString(), ["PatologiaId"] = patologiaHttp.ToString(), ["Observacion"] = "Observación de prueba" });
     await Exito("/PerrosPatologias/Guardar", new() { ["EsEdicion"] = "true", ["PerroId"] = perroHttp.ToString(), ["PatologiaId"] = patologiaHttp.ToString(), ["Controlado"] = "true" });
     await Exito($"/PerrosPatologias/Eliminar?perroId={perroHttp}&patologiaId={patologiaHttp}", new());
@@ -524,6 +578,28 @@ try
     Verificar(nuevoIngreso.Contains("Administración veterinaria") && !nuevoIngreso.Contains("Mi espacio como tutor"), "El rol anterior persistió después del cambio.");
     Console.WriteLine("Acceso por sesión: elección obligatoria, un solo rol activo, cambio sin reingreso y bloqueo de URLs del otro rol, pertenencia y semilla repetible verificados.");
 
+    await using (var scope = provider.CreateAsyncScope())
+    {
+        var usuarios = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var usuario = (await usuarios.FindByEmailAsync(SemillaDemo.EmailDoble))!;
+        Verificar((await usuarios.AddToRoleAsync(usuario, RolSesion.Administrador)).Succeeded, "No se pudo preparar la cuenta con tres roles.");
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var perfil = await db.Tutores.SingleAsync(x => x.UserId == usuario.Id);
+        var cuentas = scope.ServiceProvider.GetRequiredService<CuentaService>();
+        await Rechazar(() => cuentas.EliminarAsync(perfil.Id, false, vetId), "Un veterinario pudo dar de baja una cuenta administrativa.");
+    }
+    using var tresRoles = Cliente();
+    await Ingresar(tresRoles, SemillaDemo.EmailDoble, SemillaDemo.Password);
+    await ElegirRol(tresRoles, "Administrador");
+    Verificar((await tresRoles.GetAsync("/Veterinarios/Listado")).IsSuccessStatusCode, "El selector no activa Administrador.");
+    var tokenCambioAdmin = await Token(tresRoles, "/Identity/Cuenta/Salir");
+    await tresRoles.PostAsync("/Cuenta/CambiarRol", new FormUrlEncodedContent(new Dictionary<string, string>
+        { ["__RequestVerificationToken"] = tokenCambioAdmin }));
+    await ElegirRol(tresRoles, "Veterinario");
+    var adminInactivo = await tresRoles.GetAsync("/Veterinarios/Listado");
+    Verificar(adminInactivo.StatusCode == HttpStatusCode.Redirect && adminInactivo.Headers.Location!.ToString().Contains("AccesoDenegado"),
+        "La cuenta conservó permisos administrativos después de cambiar de rol.");
+    Console.WriteLine("Administrador: alta inicial, gestión exclusiva de veterinarios, protección de cuentas y cambio de rol verificados.");
 }
 finally
 {

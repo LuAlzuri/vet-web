@@ -4,7 +4,8 @@ namespace VetWeb.Services;
 public static class RolSesion
 {
     public const string Claim = "vetweb:rol-activo";
-    public static bool Permitido(string rol) => rol == "Veterinario" || rol == "Tutor";
+    public const string Administrador = "Administrador";
+    public static bool Permitido(string rol) => rol is "Veterinario" or "Tutor" or Administrador;
 
     public static void Limitar(ClaimsPrincipal principal, string rol)
     {

@@ -19,6 +19,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Tamanio> Tamanios { get; set; }
     public DbSet<Patologia> Patologias { get; set; }
     public DbSet<Perro> Perros { get; set; }
+    public DbSet<Imagen> Imagenes { get; set; }
     public DbSet<PerroPatologia> PerrosPatologias { get; set; }
 
     public DbSet<Estado> Estados { get; set; }
@@ -83,6 +84,17 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<GrupoEtario>().ToTable("GruposEtarios");
         builder.Entity<Tamanio>().ToTable("Tamanios");
         builder.Entity<Patologia>().ToTable("Patologias");
+
+        builder.Entity<Imagen>(entity =>
+        {
+            entity.ToTable("Imagenes", table => table.HasCheckConstraint("CK_Imagenes_TamanoBytes", "\"TamanoBytes\" > 0"));
+            entity.HasIndex(imagen => imagen.NombreArchivo).IsUnique();
+            entity.HasOne(imagen => imagen.Perro)
+                .WithOne(perro => perro.Imagen)
+                .HasForeignKey<Imagen>(imagen => imagen.PerroId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(imagen => !imagen.Perro.Eliminado && !imagen.Perro.Tutor.Eliminado);
+        });
 
         builder.Entity<Perro>(entity =>
         {
@@ -199,6 +211,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             {
                 Id = "rol-tutor", Name = "Tutor",
                 NormalizedName = "TUTOR", ConcurrencyStamp = "rol-tutor-v1"
+            },
+            new IdentityRole
+            {
+                Id = "rol-administrador", Name = VetWeb.Services.RolSesion.Administrador,
+                NormalizedName = "ADMINISTRADOR", ConcurrencyStamp = "rol-administrador-v1"
             });
     }
 }

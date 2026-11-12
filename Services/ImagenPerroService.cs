@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using VetWeb.Models;
 
 namespace VetWeb.Services;
 
@@ -15,6 +16,16 @@ public class ImagenPerroService
     }
 
     public record FotoValidada(byte[] Contenido, string Extension);
+
+    public async Task<string> AsignarAsync(Perro perro, FotoValidada foto)
+    {
+        var nombre = await GuardarAsync(foto);
+        perro.Imagen ??= new Imagen();
+        perro.Imagen.NombreArchivo = nombre;
+        perro.Imagen.TipoContenido = foto.Extension == ".png" ? "image/png" : "image/jpeg";
+        perro.Imagen.TamanoBytes = foto.Contenido.LongLength;
+        return nombre;
+    }
 
     public async Task<FotoValidada> ValidarAsync(IFormFile archivo)
     {
