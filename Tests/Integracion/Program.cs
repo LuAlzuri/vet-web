@@ -50,6 +50,10 @@ try
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         await db.Database.MigrateAsync();
         Verificar(!(await db.Database.GetPendingMigrationsAsync()).Any(), "Quedaron migraciones pendientes.");
+        var sinAuditoria = await new InformesService(db).ConsultarAsync(TipoInforme.FrecuenciaSolicitudes,
+            new PeriodoInformeDto { Desde = DateOnly.FromDateTime(Reloj.Hoy), Hasta = DateOnly.FromDateTime(Reloj.Hoy) });
+        Verificar(sinAuditoria.Total == 0 && sinAuditoria.AuditoriaDesdeUtc is null,
+            "La instalación nueva inventó cobertura o datos de auditoría.");
         var configAdmin = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["AdministradorInicial:Email"] = "admin@prueba.invalid",
@@ -712,6 +716,7 @@ try
     await VetoAutomaticoPruebas.EjecutarHttpAsync(provider, demoTutor, demoVet, administrador, lunaDemo, servicioDemo,
         await Token(demoTutor, "/Turnos/SolicitarPersonal"),
         await Token(demoVet, "/Vetos/ObtenerFormulario?tutorId=" + tutorVetoId));
+    await InformesPruebas.EjecutarAsync(provider, password, administrador, demoTutor, demoVet, anon, tresRoles);
 }
 finally
 {

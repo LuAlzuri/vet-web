@@ -8,7 +8,7 @@ CRUDs principales implementados con acciones en español, DTOs de formulario, vi
 
 La base local tiene las 20 migraciones aplicadas, incluyendo AgregarFotoPerro. Se conservaron la cuenta inicial y el perfil veterinario con matrícula 45789. Los seis estados del circuito se cargan por migración y no se pueden modificar desde la aplicación. Servicios conserva su CRUD en el menú; los demás catálogos se eligen y amplían desde los formularios correspondientes.
 
-VetWeb admite vetos manuales y automáticos, reservas presenciales y auditoría de turnos y vetos. Los informes PDF quedan para el siguiente hito.
+VetWeb admite vetos manuales y automáticos, reservas presenciales y auditoría de turnos y vetos. Administrador dispone de grillas e informes PDF por período.
 
 ## Abrir y ejecutar
 
@@ -145,6 +145,32 @@ Se registran solicitudes, reservas presenciales, ediciones y cambios de estado d
 
 El Administrador puede consultar el historial desde **Auditoría** o mediante `GET /api/auditoria?pagina=1&tutorId=123`. El filtro por tutor es opcional. La pantalla muestra fechas de Argentina y la API devuelve fechas UTC.
 
+## Informes para Administrador
+
+El rol **Administrador activo** puede abrir **Informes** desde el menú o Inicio, elegir fechas inclusivas y consultar tres grillas, cada una con su descarga PDF:
+
+- **Frecuencia de solicitudes:** solicitudes normales y reservas presenciales por día de registro, cualquiera sea su estado posterior. Cada turno se cuenta una sola vez.
+- **Atenciones con servicios completos:** turnos completados en el período con al menos un servicio asociado y todos realizados.
+- **Atenciones con servicios incompletos:** turnos completados en el período con al menos un servicio pendiente; muestra las observaciones y las patologías actuales del perro. Cada patología se cuenta una vez por atención, aunque haya varios servicios pendientes.
+
+Las fechas de solicitud y finalización provienen de `AuditoriaAcciones`, no de la fecha del cupo. Se usan días de Buenos Aires: desde las 00:00 de la fecha inicial hasta las 00:00 del día posterior a la final, excluyendo ese último instante. Los turnos sin eventos de auditoría no se reconstruyen. Se muestra la fecha y hora del **primer evento de auditoría registrado**, o se avisa que no hay eventos. Ese dato describe el registro disponible, no garantiza cobertura anterior ni demuestra ausencia de actividad en períodos sin eventos.
+
+Las bajas lógicas de perros y tutores no eliminan las atenciones del informe. Los nombres, observaciones y patologías reflejan los datos actuales; no se inventan versiones históricas. Las consultas de un mismo informe comparten un snapshot PostgreSQL para mantener coherencia entre el total y los detalles.
+
+La web ofrece `GET /Informes/Listado` (por defecto, del primer día del mes hasta hoy) y `GET /Informes/Pdf?tipo=0&desde=2026-03-10&hasta=2026-03-10`. `tipo` admite `0` (frecuencia), `1` (completos) y `2` (incompletos). El formulario conserva el período y explica fechas inválidas.
+
+La API, con la cookie de sesión de VetWeb y Administrador activo, ofrece:
+
+| Informe | JSON | PDF |
+| --- | --- | --- |
+| Frecuencia | `GET /api/reportes/frecuencia-solicitudes/datos` | `GET /api/reportes/frecuencia-solicitudes` |
+| Completos | `GET /api/reportes/servicios-completos/datos` | `GET /api/reportes/servicios-completos` |
+| Incompletos | `GET /api/reportes/servicios-incompletos/datos` | `GET /api/reportes/servicios-incompletos` |
+
+Todas requieren `desde` y `hasta` en formato `yyyy-MM-dd`. El JSON incluye tipo, período, `auditoriaDesdeUtc`, total y las filas correspondientes (`solicitudes`, `atenciones`, `patologias`). Los períodos vacíos devuelven cero y PDF sin datos; fechas ausentes, inválidas o invertidas devuelven `400`. El acceso anónimo a la API devuelve `401`; Tutor, Veterinario y una cuenta administrativa con otro rol activo reciben `403`. Son consultas GET sin escritura. No se agregan entidades, cambios de DER ni migraciones.
+
+`Tests/Integracion` prueba instalación sin auditoría, datos de control con fechas de solicitud y finalización distintas del cupo, límites del día argentino, conteo único, reservas presenciales, servicios completos/incompletos/sin servicios, observaciones, patologías, bajas lógicas, períodos vacíos e inválidos, grillas y descargas PDF de web y API, y permisos por rol activo. La base de prueba se crea desde cero y se elimina al terminar. Opcionalmente, `VETWEB_PDF_VERIFICACION` indica un directorio para conservar PDF y HTML de revisión, con datos ficticios del test.
+
 ## Datos y conservación del historial
 
 Cada entidad tiene su migración individual. PerroPatologia y ServicioPorTurno usan claves compuestas para impedir asociaciones duplicadas. Las relaciones del dominio restringen el borrado en cascada. Nombre, apellido y correo se conservan en ApplicationUser.
@@ -178,7 +204,7 @@ Se verificaron altas, ediciones y bajas por HTTP; formularios Razor; antifalsifi
 
 ## Dependencias
 
-.NET 8, nullable e implicit usings habilitados. Paquetes Microsoft de Identity y EF Core 8.0.30; Npgsql.EntityFrameworkCore.PostgreSQL 8.0.11; QuestPDF 2026.9.1. La herramienta local dotnet-ef está fijada en 8.0.30. Bootstrap, jQuery y validación están incluidos localmente. QuestPDF queda disponible para un hito posterior de reportes.
+.NET 8, nullable e implicit usings habilitados. Paquetes Microsoft de Identity y EF Core 8.0.30; Npgsql.EntityFrameworkCore.PostgreSQL 8.0.11; QuestPDF 2026.9.1. La herramienta local dotnet-ef está fijada en 8.0.30. Bootstrap, jQuery y validación están incluidos localmente. QuestPDF genera los informes administrativos en PDF.
 
 ## Organización
 
