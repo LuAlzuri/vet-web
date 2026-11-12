@@ -5,7 +5,7 @@ using VetWeb.Models;
 
 namespace VetWeb.Services;
 
-public class VetoService(ApplicationDbContext db)
+public class VetoService(ApplicationDbContext db, AuditoriaService auditoria)
 {
     public IQueryable<Veto> Vigentes()
     {
@@ -41,6 +41,8 @@ public class VetoService(ApplicationDbContext db)
         var veto = new Veto { TutorId = tutorId, VeterinarioId = veterinarioId, FechaInicio = DateTime.UtcNow, Motivo = texto };
         db.Vetos.Add(veto);
         await db.SaveChangesAsync();
+        auditoria.RegistrarVeto(veto, usuarioId, levantado: false);
+        await db.SaveChangesAsync();
         await transaction.CommitAsync();
         return veto.Id;
     }
@@ -55,6 +57,7 @@ public class VetoService(ApplicationDbContext db)
             ?? throw new InvalidOperationException("El veto indicado no está vigente para este tutor.");
         veto.FechaFin = DateTime.UtcNow;
         veto.MotivoFinVeto = texto;
+        auditoria.RegistrarVeto(veto, usuarioId, levantado: true);
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
     }

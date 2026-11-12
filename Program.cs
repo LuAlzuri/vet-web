@@ -17,6 +17,7 @@ builder.Services.AddRazorPages();
 builder.Services.AddScoped<VetWeb.Services.CuentaService>();
 builder.Services.AddScoped<VetWeb.Services.TurnoService>();
 builder.Services.AddScoped<VetWeb.Services.VetoService>();
+builder.Services.AddScoped<VetWeb.Services.AuditoriaService>();
 builder.Services.AddScoped<VetWeb.Services.CatalogosFormularioService>();
 builder.Services.AddScoped<VetWeb.Services.ImagenPerroService>();
 

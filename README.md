@@ -8,7 +8,7 @@ CRUDs principales implementados con acciones en español, DTOs de formulario, vi
 
 La base local tiene las 20 migraciones aplicadas, incluyendo AgregarFotoPerro. Se conservaron la cuenta inicial y el perfil veterinario con matrícula 45789. Los seis estados del circuito se cargan por migración y no se pueden modificar desde la aplicación. Servicios conserva su CRUD en el menú; los demás catálogos se eligen y amplían desde los formularios correspondientes.
 
-VetWeb admite vetos manuales y reservas presenciales. Auditoría, veto automático y reportes PDF se incorporarán en sus respectivos hitos.
+VetWeb admite vetos manuales, reservas presenciales y auditoría de turnos y vetos. Veto automático y reportes PDF se incorporarán en sus respectivos hitos.
 
 ## Abrir y ejecutar
 
@@ -76,7 +76,7 @@ El comando crea la primera cuenta administrativa y termina. Después se pueden q
 
 ## Pantallas y permisos
 
-Administrador gestiona las altas, consultas, ediciones y bajas de veterinarios. Su menú y sus permisos se habilitan al elegir ese rol, igual que para Tutor y Veterinario. Auditoría e informes se incorporarán en sus respectivos hitos.
+Administrador gestiona veterinarios y consulta la auditoría. Su menú y sus permisos se habilitan al elegir ese rol, igual que para Tutor y Veterinario.
 
 | Sección | Veterinario | Tutor |
 | --- | --- | --- |
@@ -124,6 +124,14 @@ Desde **Tutores → Vetos**, el veterinario puede consultar el historial, aplica
 El veto bloquea las solicitudes nuevas. Mientras esté vigente, el veterinario puede abrir **Reserva presencial** desde esa misma pantalla. El turno queda solicitado y asignado al profesional que lo registró. La excepción conserva la verificación de vacunas, fechas, cupos disponibles y turnos duplicados.
 
 La API ofrece `GET` y `POST /api/tutores/{tutorId}/vetos`, `POST /api/tutores/{tutorId}/vetos/{vetoId}/levantar` y `POST /api/turnos/presencial`. Se requiere Veterinario activo. Para aplicar o levantar el veto, enviar JSON con `motivo`. Los POST requieren antifalsificación de la sesión de Identity. Se usa la tabla `Vetos` existente.
+
+## Auditoría
+
+La migración `AgregarAuditoriaAccion` crea el historial de eventos. Cada registro relaciona el usuario de Identity que actuó con el tutor afectado y guarda el rol activo, la fecha en UTC, el tipo e ID del registro y, para cambios de estado, los estados anterior y nuevo.
+
+Se registran solicitudes, reservas presenciales, ediciones y cambios de estado de turnos, además de la aplicación y el levantamiento de vetos. Los servicios guardan los eventos en la misma transacción que la operación. La auditoría empieza a registrar eventos al aplicar la migración y usar la versión actualizada.
+
+El Administrador puede consultar el historial desde **Auditoría** o mediante `GET /api/auditoria?pagina=1&tutorId=123`. El filtro por tutor es opcional. La pantalla muestra fechas de Argentina y la API devuelve fechas UTC.
 
 ## Datos y conservación del historial
 

@@ -1,0 +1,74 @@
+@using VetWeb.Models
+@using VetWeb.Services
+@model VetWeb.Dtos.AuditoriaPaginaDto
+@{
+    ViewData["Title"] = "Auditoría";
+    string Estado(int? id) => id switch
+    {
+        EstadosTurno.Solicitado => "Solicitado",
+        EstadosTurno.Confirmado => "Confirmado",
+        EstadosTurno.Rechazado => "Rechazado",
+        EstadosTurno.Completado => "Completado",
+        EstadosTurno.CanceladoTutor => "Cancelado por tutor",
+        EstadosTurno.CanceladoVeterinario => "Cancelado por veterinario",
+        _ => "—"
+    };
+}
+<h1 class="h2">Auditoría</h1>
+<form asp-action="Listado" method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-auto">
+        <label for="tutorId" class="form-label">ID del tutor</label>
+        <input id="tutorId" name="tutorId" type="number" min="1" value="@ViewBag.TutorId" class="form-control" />
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+        <a asp-action="Listado" class="btn btn-outline-secondary">Ver todos</a>
+    </div>
+</form>
+@if (Model.Eventos.Count == 0)
+{
+    <p>No hay eventos para mostrar.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Rol</th><th>Tutor</th><th>Acción</th><th>Registro</th><th>Estado</th></tr></thead>
+            <tbody>
+            @foreach (var evento in Model.Eventos)
+            {
+                var accion = evento.Accion switch
+                {
+                    AuditoriaAccion.TurnoSolicitado => "Solicitud de turno",
+                    AuditoriaAccion.ReservaPresencial => "Reserva presencial",
+                    AuditoriaAccion.TurnoEditado => "Edición de turno",
+                    AuditoriaAccion.EstadoTurnoCambiado => "Cambio de estado",
+                    AuditoriaAccion.VetoAplicado => "Aplicación de veto",
+                    AuditoriaAccion.VetoLevantado => "Levantamiento de veto",
+                    _ => evento.Accion
+                };
+                <tr>
+                    <td>@Reloj.EnArgentina(evento.FechaUtc).ToString("dd/MM/yyyy HH:mm:ss")</td>
+                    <td>@evento.Usuario</td>
+                    <td>@evento.RolActivo</td>
+                    <td>@evento.Tutor (#@evento.TutorId)</td>
+                    <td>@accion</td>
+                    <td>@evento.Entidad #@evento.EntidadId</td>
+                    <td>@(evento.EstadoAnteriorId.HasValue ? $"{Estado(evento.EstadoAnteriorId)} → " : "")@Estado(evento.EstadoNuevoId)</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+<nav aria-label="Páginas de auditoría" class="d-flex gap-2 align-items-center mt-3">
+    @if (Model.Pagina > 1)
+    {
+        <a asp-action="Listado" asp-route-pagina="@(Model.Pagina - 1)" asp-route-tutorId="@ViewBag.TutorId" class="btn btn-outline-secondary">Anterior</a>
+    }
+    <span>Página @Model.Pagina</span>
+    @if (Model.HaySiguiente)
+    {
+        <a asp-action="Listado" asp-route-pagina="@(Model.Pagina + 1)" asp-route-tutorId="@ViewBag.TutorId" class="btn btn-outline-secondary">Siguiente</a>
+    }
+</nav>
