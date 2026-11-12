@@ -707,6 +707,11 @@ try
     Verificar(adminInactivo.StatusCode == HttpStatusCode.Redirect && adminInactivo.Headers.Location!.ToString().Contains("AccesoDenegado"),
         "La cuenta conservó permisos administrativos después de cambiar de rol.");
     Console.WriteLine("Administrador: alta inicial, gestión exclusiva de veterinarios, protección de cuentas y cambio de rol verificados.");
+
+    await VetoAutomaticoPruebas.EjecutarAsync(provider, password, vetId);
+    await VetoAutomaticoPruebas.EjecutarHttpAsync(provider, demoTutor, demoVet, administrador, lunaDemo, servicioDemo,
+        await Token(demoTutor, "/Turnos/SolicitarPersonal"),
+        await Token(demoVet, "/Vetos/ObtenerFormulario?tutorId=" + tutorVetoId));
 }
 finally
 {

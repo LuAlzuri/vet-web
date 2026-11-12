@@ -62,6 +62,38 @@ public class VetoService(ApplicationDbContext db, AuditoriaService auditoria)
         await transaction.CommitAsync();
     }
 
+    // Requiere la transacción y el bloqueo del tutor de CambiarEstadoAsync.
+    // La cancelación ya está guardada (con su ID de auditoría), pero aún no confirmada.
+    internal async Task EvaluarCancelacionAsync(int tutorId, string usuarioId)
+    {
+        if (await Vigentes().AnyAsync(x => x.TutorId == tutorId)) return;
+
+        var eventos = db.AuditoriaAcciones.Where(x => x.TutorId == tutorId);
+        var reinicio = await eventos.Where(x =>
+                x.Entidad == nameof(Veto) && x.Accion == AuditoriaAccion.VetoLevantado
+                || x.Entidad == nameof(Turno) && x.Accion == AuditoriaAccion.EstadoTurnoCambiado
+                    && x.EstadoNuevoId == EstadosTurno.Completado)
+            .OrderByDescending(x => x.FechaUtc).ThenByDescending(x => x.Id)
+            .Select(x => new { x.FechaUtc, x.Id }).FirstOrDefaultAsync();
+        var cancelaciones = eventos.Where(x => x.Entidad == nameof(Turno)
+            && x.Accion == AuditoriaAccion.EstadoTurnoCambiado && x.RolActivo == "Tutor"
+            && x.UsuarioId == usuarioId && x.EstadoNuevoId == EstadosTurno.CanceladoTutor);
+        if (reinicio is not null)
+            cancelaciones = cancelaciones.Where(x => x.FechaUtc > reinicio.FechaUtc
+                || x.FechaUtc == reinicio.FechaUtc && x.Id > reinicio.Id);
+        if (await cancelaciones.Take(3).CountAsync() < 3) return;
+
+        var veto = new Veto
+        {
+            TutorId = tutorId, VeterinarioId = null,
+            FechaInicio = DateTime.UtcNow, Motivo = Veto.MotivoAutomatico
+        };
+        db.Vetos.Add(veto);
+        await db.SaveChangesAsync();
+        auditoria.RegistrarVeto(veto, usuarioId, levantado: false, automatico: true);
+        await db.SaveChangesAsync();
+    }
+
     internal async Task<int> ObtenerVeterinarioIdAsync(string usuarioId) =>
         await db.Veterinarios.Where(x => x.UserId == usuarioId && x.Usuario.Activo)
             .Select(x => (int?)x.Id).SingleOrDefaultAsync() ?? throw new UnauthorizedAccessException();

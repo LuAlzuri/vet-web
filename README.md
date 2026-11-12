@@ -8,7 +8,7 @@ CRUDs principales implementados con acciones en español, DTOs de formulario, vi
 
 La base local tiene las 20 migraciones aplicadas, incluyendo AgregarFotoPerro. Se conservaron la cuenta inicial y el perfil veterinario con matrícula 45789. Los seis estados del circuito se cargan por migración y no se pueden modificar desde la aplicación. Servicios conserva su CRUD en el menú; los demás catálogos se eligen y amplían desde los formularios correspondientes.
 
-VetWeb admite vetos manuales, reservas presenciales y auditoría de turnos y vetos. Veto automático y reportes PDF se incorporarán en sus respectivos hitos.
+VetWeb admite vetos manuales y automáticos, reservas presenciales y auditoría de turnos y vetos. Los informes PDF quedan para el siguiente hito.
 
 ## Abrir y ejecutar
 
@@ -124,6 +124,18 @@ Desde **Tutores → Vetos**, el veterinario puede consultar el historial, aplica
 El veto bloquea las solicitudes nuevas. Mientras esté vigente, el veterinario puede abrir **Reserva presencial** desde esa misma pantalla. El turno queda solicitado y asignado al profesional que lo registró. La excepción conserva la verificación de vacunas, fechas, cupos disponibles y turnos duplicados.
 
 La API ofrece `GET` y `POST /api/tutores/{tutorId}/vetos`, `POST /api/tutores/{tutorId}/vetos/{vetoId}/levantar` y `POST /api/turnos/presencial`. Se requiere Veterinario activo. Para aplicar o levantar el veto, enviar JSON con `motivo`. Los POST requieren antifalsificación de la sesión de Identity. Se usa la tabla `Vetos` existente.
+
+## Veto automático por cancelaciones
+
+La tercera cancelación realizada por el Tutor sobre sus propios turnos aplica un veto automático. Una atención completada o el levantamiento de cualquier veto reinician el conteo de ese tutor. No cuentan los rechazos, las cancelaciones del Veterinario ni los intentos fallidos o repetidos. Solo se usan eventos registrados desde la incorporación de auditoría; no se reconstruyen cancelaciones históricas. Los eventos se ordenan por fecha UTC e ID para resolver empates.
+
+Se reutilizan `Vetos` y `AuditoriaAcciones`: no hay cambios de modelo, DER ni migraciones nuevas. El veto automático tiene `VeterinarioId = null` y motivo «Superó número de cancelaciones». El evento `VetoAutomaticoAplicado` conserva el usuario y rol Tutor de la cancelación que lo disparó; no atribuye una intervención a un veterinario. **Tutores → Vetos** distingue el origen automático del manual y permite levantarlo o registrar una reserva presencial con las reglas existentes.
+
+Web y API usan `TurnoService`. La cancelación, devolución de plazas, evento de cambio de estado, veto y evento automático se confirman en una sola transacción. Las reservas y transiciones bloquean primero el tutor; las transiciones bloquean luego el turno y finalmente el cupo cuando corresponde. Las lecturas bajo Read Committed después del bloqueo ven los cambios ya confirmados por la operación anterior, incluido un veto recién aplicado. Dos cancelaciones simultáneas no duplican un veto ni devuelven plazas dos veces.
+
+Para probar manualmente, solicitar y cancelar tres turnos de un mismo tutor desde **Mis turnos** o con `POST /api/turnos` y `POST /api/turnos/{id}/cancelar` (cookie y antifalsificación). Tras la tercera cancelación, otra solicitud devuelve un mensaje de veto vigente. Como Veterinario, revisar **Tutores → Vetos**, probar **Reserva presencial** y **Levantar veto**. Tras levantarlo, la siguiente cancelación vuelve a ser la primera. Como Administrador, consultar **Auditoría** o `GET /api/auditoria?tutorId=...` para comprobar el evento automático.
+
+`Tests/Integracion` comprueba el umbral, reinicios por levantamiento y atención completada, exclusiones, aislamiento, empates por fecha/ID, concurrencia, devolución única, rollback ante fallo de auditoría y el recorrido HTTP por web y API. Crea PostgreSQL temporal desde cero, aplica todas las migraciones y elimina esa base al terminar, sin modificar la base de trabajo.
 
 ## Auditoría
 

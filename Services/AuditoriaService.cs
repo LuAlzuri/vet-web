@@ -25,15 +25,17 @@ public class AuditoriaService(ApplicationDbContext db)
         });
     }
 
-    public void RegistrarVeto(Veto veto, string usuarioId, bool levantado)
+    public void RegistrarVeto(Veto veto, string usuarioId, bool levantado, bool automatico = false)
     {
         db.AuditoriaAcciones.Add(new AuditoriaAccion
         {
             FechaUtc = levantado ? veto.FechaFin!.Value : veto.FechaInicio,
             UsuarioId = usuarioId,
             TutorId = veto.TutorId,
-            RolActivo = "Veterinario",
-            Accion = levantado ? AuditoriaAccion.VetoLevantado : AuditoriaAccion.VetoAplicado,
+            // El veto automático lo dispara la cancelación del Tutor, no una acción veterinaria.
+            RolActivo = automatico ? "Tutor" : "Veterinario",
+            Accion = levantado ? AuditoriaAccion.VetoLevantado
+                : automatico ? AuditoriaAccion.VetoAutomaticoAplicado : AuditoriaAccion.VetoAplicado,
             Entidad = nameof(Veto),
             EntidadId = veto.Id
         });

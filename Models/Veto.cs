@@ -4,6 +4,8 @@ namespace VetWeb.Models;
 
 public class Veto
 {
+    public const string MotivoAutomatico = "Superó número de cancelaciones";
+
     public int Id { get; set; }
 
     [Range(1, int.MaxValue, ErrorMessage = "Seleccioná un tutor válido.")]

@@ -1,4 +1,3 @@
-using System.Data;
 using Microsoft.EntityFrameworkCore;
 using VetWeb.Data;
 using VetWeb.Dtos;
@@ -39,7 +38,7 @@ public class TurnoService
             await EditarAsync(dto, usuarioId);
             return dto.Id;
         }
-        await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        await using var transaction = await _context.Database.BeginTransactionAsync();
         var perro = await _context.Perros.Include(x => x.Tutor).ThenInclude(x => x.Usuario).SingleOrDefaultAsync(x => x.Id == dto.PerroId);
         if (perro is null || !perro.Tutor.Usuario.Activo) throw new InvalidOperationException("El perro o su tutor no están disponibles.");
         if (!esVeterinario && perro.Tutor.UserId != usuarioId) throw new InvalidOperationException("Solo podés solicitar turnos para tus perros.");
@@ -105,10 +104,16 @@ public class TurnoService
     public async Task CambiarEstadoAsync(int id, int destino, string usuarioId, bool esVeterinario, int? cantidad = null)
     {
         await using var transaction = await _context.Database.BeginTransactionAsync();
+        // Leer solo la pertenencia antes de bloquear: todas las operaciones que afectan
+        // vetos, conteo o reservas siguen el orden tutor -> turno -> cupo.
+        var tutor = await _context.Turnos.AsNoTracking().Where(x => x.Id == id)
+            .Select(x => new { x.Perro.TutorId, x.Perro.Tutor.UserId }).SingleOrDefaultAsync()
+            ?? throw new InvalidOperationException("No se encontró un turno disponible.");
+        await _vetos.BloquearTutorAsync(tutor.TutorId);
         var turno = await BloquearTurnoAsync(id);
+        // Un mismo contexto puede haber leído el turno antes de esperar el bloqueo.
+        await _context.Entry(turno).ReloadAsync();
         if (esVeterinario && !await PuedeAtenderAsync(turno, usuarioId)) throw new UnauthorizedAccessException();
-        var tutor = await _context.Perros.Where(x => x.Id == turno.PerroId)
-            .Select(x => new { x.TutorId, x.Tutor.UserId }).SingleAsync();
         if (!esVeterinario && (tutor.UserId != usuarioId || destino != EstadosTurno.CanceladoTutor))
             throw new InvalidOperationException("No tenés permiso para esta operación.");
         var permitido = esVeterinario
@@ -134,6 +139,9 @@ public class TurnoService
         var estadoAnterior = turno.EstadoId;
         turno.EstadoId = destino;
         _auditoria.RegistrarTurno(turno, tutor.TutorId, usuarioId, esVeterinario, AuditoriaAccion.EstadoTurnoCambiado, estadoAnterior);
-        await _context.SaveChangesAsync(); await transaction.CommitAsync();
+        await _context.SaveChangesAsync();
+        if (!esVeterinario && destino == EstadosTurno.CanceladoTutor)
+            await _vetos.EvaluarCancelacionAsync(tutor.TutorId, usuarioId);
+        await transaction.CommitAsync();
     }
 }
