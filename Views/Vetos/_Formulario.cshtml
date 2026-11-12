@@ -1,0 +1,17 @@
+@model VetWeb.Dtos.MotivoVetoDto
+@{ var titulo = ViewBag.VetoId is null ? "Aplicar veto" : "Levantar veto"; }
+<div class="modal-header">
+    <h2 class="modal-title fs-5">@titulo</h2>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+</div>
+<form asp-action="Guardar" asp-route-tutorId="@ViewBag.TutorId" asp-route-vetoId="@ViewBag.VetoId" method="post" data-crud>
+    <div class="modal-body">
+        <label asp-for="Motivo" class="form-label"></label>
+        <textarea asp-for="Motivo" class="form-control" rows="3"></textarea>
+        <span asp-validation-for="Motivo" class="text-danger"></span>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">@titulo</button>
+    </div>
+</form>

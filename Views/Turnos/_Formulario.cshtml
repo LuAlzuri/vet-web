@@ -1,10 +1,22 @@
 @model VetWeb.Dtos.TurnoDto
-<div class="modal-header"><h2 class="modal-title fs-5">@(Model.Id == 0 ? "Solicitar turno" : "Editar turno")</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
-<form asp-action="@(ViewBag.Personal == true ? "GuardarPersonal" : "Guardar")" method="post" data-crud><div class="modal-body">
+@{
+    var presencial = ViewBag.TutorPresencialId is int;
+    var titulo = presencial ? "Reserva presencial" : Model.Id == 0 ? "Solicitar turno" : "Editar turno";
+    var accion = presencial ? "GuardarPresencial" : ViewBag.Personal == true ? "GuardarPersonal" : "Guardar";
+}
+<div class="modal-header"><h2 class="modal-title fs-5">@titulo</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+<form asp-action="@accion" asp-route-tutorId="@ViewBag.TutorPresencialId" method="post" data-crud><div class="modal-body">
 <div data-error class="alert alert-danger d-none" role="alert"></div><div asp-validation-summary="ModelOnly" class="text-danger"></div><input asp-for="Id" type="hidden" />
 @if (Model.Id == 0) {
 <div class="mb-3"><label asp-for="PerroId" class="form-label"></label><select asp-for="PerroId" asp-items="ViewBag.Perros" class="form-select"><option value="">Seleccionar</option></select><span asp-validation-for="PerroId" class="text-danger"></span></div>
-<div class="mb-3"><label asp-for="VeterinarioId" class="form-label"></label><select asp-for="VeterinarioId" asp-items="ViewBag.Veterinarios" class="form-select"><option value="">No especifica</option></select><span asp-validation-for="VeterinarioId" class="text-danger"></span></div>
+@if (presencial)
+{
+    <p class="form-text">La reserva quedará asignada a tu cuenta de Veterinario.</p>
+}
+else
+{
+    <div class="mb-3"><label asp-for="VeterinarioId" class="form-label"></label><select asp-for="VeterinarioId" asp-items="ViewBag.Veterinarios" class="form-select"><option value="">No especifica</option></select><span asp-validation-for="VeterinarioId" class="text-danger"></span></div>
+}
 <div class="mb-3"><label asp-for="CupoDiarioId" class="form-label"></label><select asp-for="CupoDiarioId" asp-items="ViewBag.Cupos" class="form-select"><option value="">Seleccionar</option></select><span asp-validation-for="CupoDiarioId" class="text-danger"></span></div>
 <fieldset class="mb-3"><legend class="fs-6">Servicios solicitados</legend>
 @foreach (var servicio in (IEnumerable<VetWeb.Models.Servicio>)ViewBag.Servicios) {

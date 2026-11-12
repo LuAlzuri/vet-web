@@ -8,7 +8,9 @@ public class TurnoService
 {
     private readonly ApplicationDbContext _context;
     private readonly CatalogosFormularioService _catalogos;
-    public TurnoService(ApplicationDbContext context, CatalogosFormularioService catalogos) { _context = context; _catalogos = catalogos; }
+    private readonly VetoService _vetos;
+    public TurnoService(ApplicationDbContext context, CatalogosFormularioService catalogos, VetoService vetos)
+    { _context = context; _catalogos = catalogos; _vetos = vetos; }
 
     public IQueryable<Turno> ConsultarVisibles(string usuarioId, bool esVeterinario)
     {
@@ -18,12 +20,19 @@ public class TurnoService
             : turnos.Where(x => x.Perro.Tutor.UserId == usuarioId);
     }
 
-    public async Task<int> GuardarAsync(TurnoDto dto, string usuarioId, bool esVeterinario)
+    public Task<int> GuardarAsync(TurnoDto dto, string usuarioId, bool esVeterinario) =>
+        GuardarAsync(dto, usuarioId, esVeterinario, presencial: false);
+
+    public Task<int> ReservarPresencialAsync(TurnoDto dto, string usuarioId) =>
+        GuardarAsync(dto, usuarioId, esVeterinario: true, presencial: true);
+
+    private async Task<int> GuardarAsync(TurnoDto dto, string usuarioId, bool esVeterinario, bool presencial)
     {
         if (!esVeterinario && (dto.TratamientoId is not null || !string.IsNullOrWhiteSpace(dto.NuevoTratamiento)))
             throw new InvalidOperationException("El tratamiento debe registrarlo el veterinario.");
         if (dto.Id != 0)
         {
+            if (presencial) throw new InvalidOperationException("La reserva presencial debe ser un turno nuevo.");
             if (!esVeterinario) throw new InvalidOperationException("Solo el veterinario puede editar un turno solicitado.");
             await EditarAsync(dto, usuarioId);
             return dto.Id;
@@ -32,6 +41,16 @@ public class TurnoService
         var perro = await _context.Perros.Include(x => x.Tutor).ThenInclude(x => x.Usuario).SingleOrDefaultAsync(x => x.Id == dto.PerroId);
         if (perro is null || !perro.Tutor.Usuario.Activo) throw new InvalidOperationException("El perro o su tutor no están disponibles.");
         if (!esVeterinario && perro.Tutor.UserId != usuarioId) throw new InvalidOperationException("Solo podés solicitar turnos para tus perros.");
+        await _vetos.BloquearTutorAsync(perro.TutorId);
+        var vetado = await _vetos.Vigentes().AnyAsync(x => x.TutorId == perro.TutorId);
+        if (vetado && !presencial)
+            throw new InvalidOperationException(esVeterinario
+                ? "El tutor tiene un veto vigente. Usá la opción Reserva presencial."
+                : "Tenés un veto vigente. Comunicate con la veterinaria para solicitar una reserva presencial.");
+        if (presencial && !vetado)
+            throw new InvalidOperationException("La reserva presencial está disponible para tutores con un veto vigente.");
+        if (presencial)
+            dto.VeterinarioId = await _vetos.ObtenerVeterinarioIdAsync(usuarioId);
         if (dto.VeterinarioId is not null && !await _context.Veterinarios.AnyAsync(x => x.Id == dto.VeterinarioId && x.Usuario.Activo)) throw new InvalidOperationException("Seleccioná un veterinario activo.");
         var cupo = await _context.CuposDiarios.FromSqlInterpolated($"SELECT * FROM \"CuposDiarios\" WHERE \"Id\" = {dto.CupoDiarioId} FOR UPDATE").SingleOrDefaultAsync();
         if (cupo is null || cupo.FechaCupo < Reloj.Hoy || cupo.NumeroCuposDisponibles <= 0) throw new InvalidOperationException("El cupo ya no está disponible. Actualizá la página.");

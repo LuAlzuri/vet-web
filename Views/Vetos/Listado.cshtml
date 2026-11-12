@@ -1,0 +1,47 @@
+@model List<VetWeb.Dtos.VetoDto>
+@{
+    ViewData["Title"] = "Vetos";
+    var vigente = Model.FirstOrDefault(x => x.Vigente);
+}
+<h1 class="h2">Vetos de @ViewBag.Tutor</h1>
+<div class="d-flex flex-wrap gap-2 mb-3">
+    <a asp-controller="Tutores" asp-action="Listado" class="btn btn-outline-secondary">Volver a tutores</a>
+    @if (vigente is null)
+    {
+        <button class="btn btn-outline-danger" data-form-url="@Url.Action("ObtenerFormulario", new { tutorId = ViewBag.TutorId })">Aplicar veto</button>
+    }
+    else
+    {
+        <button class="btn btn-primary" data-form-url="@Url.Action("SolicitarPresencial", "Turnos", new { tutorId = ViewBag.TutorId })">Reserva presencial</button>
+        <button class="btn btn-outline-primary" data-form-url="@Url.Action("ObtenerFormulario", new { tutorId = ViewBag.TutorId, vetoId = vigente.Id })">Levantar veto</button>
+    }
+</div>
+<partial name="_CrudModal" />
+@if (Model.Count == 0)
+{
+    <p>No hay vetos registrados.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead><tr><th>Inicio</th><th>Motivo</th><th>Estado</th><th>Fin</th><th>Motivo de finalización</th></tr></thead>
+            <tbody>
+            @foreach (var veto in Model)
+            {
+                <tr>
+                    <td>@veto.FechaInicio.ToString("dd/MM/yyyy HH:mm") UTC</td>
+                    <td>@veto.Motivo</td>
+                    <td>@(veto.Vigente ? "Vigente" : "No vigente")</td>
+                    <td>@(veto.FechaFin?.ToString("dd/MM/yyyy HH:mm") is string fin ? fin + " UTC" : "—")</td>
+                    <td>@veto.MotivoFinVeto</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/crud.js" asp-append-version="true"></script>
+}
