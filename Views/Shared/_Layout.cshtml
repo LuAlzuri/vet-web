@@ -9,6 +9,7 @@
     <link rel="icon" type="image/svg+xml" href="~/images/brand/veteweb-logo.svg" />
     <meta name="theme-color" content="#63d3d5" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/chatbot.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/VetWeb.styles.css" asp-append-version="true" />
 </head>
 <body class="@(User.Identity?.IsAuthenticated == true ? "sesion-activa" : "sesion-publica") @ViewData["BodyClass"]">
@@ -48,11 +49,13 @@
         </div>
     </footer>
     <partial name="_NavegacionMovil" />
+    <partial name="_Chatbot" />
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/lib/sweetalert2/sweetalert2.all.min.js" asp-append-version="true"></script>
     <script src="~/js/alertas.js" asp-append-version="true"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/chatbot.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

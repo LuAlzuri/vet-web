@@ -319,3 +319,7 @@ La acción Perros/Foto verifica autenticación, rol activo y pertenencia: el vet
 El listado ahora usa tarjetas Bootstrap de hasta 320 px, adaptables al ancho de pantalla. Cada tarjeta incluye imagen o indicador Sin foto, nombre, tabla con tutor, nacimiento, grupo etario, tamaño, reactividad y vacunas, y el botón principal Historial. El rol Veterinario conserva Patologías, Editar y Dar de baja; el tutor no ve esas acciones.
 
 AgregarFotoPerro fue aplicada en la base local y agrega una columna opcional sin cambiar los perros anteriores. Se probaron carga multipart, reemplazo, conservación al editar sin foto, rechazo de formatos no admitidos y archivos grandes, privacidad de la imagen y datos de la tarjeta sobre una base y carpeta temporales. No se agregaron paquetes de imágenes ni datos demo con fotos en la base de trabajo.
+
+### Asistente de chat
+
+La estructura del chatbot está disponible para los tres roles mediante una ventana flotante. Por ahora informa que Gemini aún no está conectado; no realiza llamadas externas ni guarda conversaciones. Ver [estructura y guía de conexión a Gemini](docs/CHATBOT.md).

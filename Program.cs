@@ -16,6 +16,7 @@ builder.Services.AddControllersWithViews(options =>
     options.ModelBindingMessageProvider.SetValueMustNotBeNullAccessor(valor => "Este campo es obligatorio.");
 });
 builder.Services.AddRazorPages();
+builder.Services.AddScoped<VetWeb.Services.Chatbot.IChatbotProveedor, VetWeb.Services.Chatbot.ChatbotSinConexion>();
 builder.Services.AddScoped<VetWeb.Services.CuentaService>();
 builder.Services.AddScoped<VetWeb.Services.PerroService>();
 builder.Services.AddScoped<VetWeb.Services.CupoService>();

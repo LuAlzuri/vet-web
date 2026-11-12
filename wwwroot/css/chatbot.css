@@ -1,0 +1,21 @@
+/* El asistente respeta la barra de navegación inferior del móvil. */
+.chatbot { position: fixed; right: 1.25rem; bottom: 6rem; z-index: 1040; }
+.chatbot-abrir { border-radius: 2rem; box-shadow: 0 4px 16px #153e4226; }
+.chatbot-panel { position: absolute; bottom: 3.5rem; right: 0; width: 370px; max-width: calc(100vw - 2rem); max-height: calc(100dvh - 12rem); background: #fff; border: 1px solid #b9d9d7; border-radius: 1rem; box-shadow: 0 8px 32px #153e4233; display: flex; flex-direction: column; overflow: hidden; color: #153e42; }
+.chatbot-panel[hidden] { display: none; }
+.chatbot-cabecera { padding: .8rem 1rem; background: #d8f4f2; display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.chatbot-cabecera h2 { font-size: 1rem; margin: 0; }
+.chatbot-aviso { font-size: .8rem; margin: .6rem 1rem; }
+.chatbot-mensajes { overflow-y: auto; min-height: 80px; max-height: 280px; padding: 0 1rem; overflow-wrap: anywhere; }
+.chatbot-mensaje { padding: .65rem; border-radius: .6rem; background: #eef3f2; white-space: pre-wrap; font-size: .9rem; }
+.chatbot-user { background: #d8f4f2; }
+.chatbot-estado { margin: .4rem 1rem; font-size: .85rem; }
+.chatbot-formulario { padding: .7rem 1rem; border-top: 1px solid #d8f4f2; }
+.chatbot-formulario label { font-size: .85rem; }
+.chatbot-acciones { display: flex; justify-content: space-between; gap: .5rem; margin-top: .6rem; }
+@media (max-width: 575px) {
+    .chatbot { right: 1rem; bottom: 5.5rem; }
+    .chatbot-panel { max-height: calc(100dvh - 10rem); }
+}
+
+@media print { .chatbot { display: none; } }

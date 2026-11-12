@@ -1,0 +1,24 @@
+@if (User.IsInRole("Veterinario") || User.IsInRole("Tutor") || User.IsInRole("Administrador"))
+{
+    <div class="chatbot" data-chatbot data-url="@Url.Content("~/api/chatbot/mensajes")">
+        <button type="button" class="btn btn-primary chatbot-abrir" aria-expanded="false" aria-controls="chatbot-panel">Asistente VeteWeb</button>
+        <section id="chatbot-panel" class="chatbot-panel" aria-labelledby="chatbot-titulo" hidden>
+            <header class="chatbot-cabecera">
+                <h2 id="chatbot-titulo">Asistente VeteWeb</h2>
+                <button type="button" class="btn btn-sm btn-light" data-chatbot-cerrar aria-label="Cerrar asistente">Cerrar</button>
+            </header>
+            <p class="chatbot-aviso">En preparación · Gemini aún no está conectado.</p>
+            <div class="chatbot-mensajes" role="log" aria-label="Conversación" aria-live="polite" aria-relevant="additions"></div>
+            <p class="chatbot-estado" role="status"></p>
+            <form class="chatbot-formulario">
+                @Html.AntiForgeryToken()
+                <label for="chatbot-mensaje">Tu consulta</label>
+                <textarea id="chatbot-mensaje" class="form-control" rows="2" maxlength="2000" required placeholder="Escribí tu mensaje"></textarea>
+                <div class="chatbot-acciones">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-chatbot-limpiar>Nueva conversación</button>
+                    <button type="submit" class="btn btn-primary">Enviar</button>
+                </div>
+            </form>
+        </section>
+    </div>
+}

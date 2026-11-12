@@ -730,6 +730,7 @@ try
         await Token(demoVet,"/Turnos/ObtenerFormulario"),await Token(demoTutor,"/Turnos/SolicitarPersonal"),tokenAdmin,
         await Token(demoDualVet,"/Turnos/ObtenerFormulario"));
     await CatalogosPruebas.EjecutarAsync(provider, demoVet, administrador, demoTutor, anon);
+    await ChatbotPruebas.EjecutarAsync(demoVet, administrador, demoTutor, anon);
     var tokenCambioCatalogos = await Token(tresRoles, "/Identity/Cuenta/Salir");
     await tresRoles.PostAsync("/Cuenta/CambiarRol", new FormUrlEncodedContent(new Dictionary<string,string> { ["__RequestVerificationToken"] = tokenCambioCatalogos }));
     await ElegirRol(tresRoles, "Tutor");
