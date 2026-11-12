@@ -1,0 +1,29 @@
+@model string
+<svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+@switch (Model)
+{
+    case "flecha":
+        <path d="m7 17 10-10M7 7h10v10" />
+        break;
+    case "inicio":
+        <path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z" />
+        break;
+    case "calendario":
+        <rect x="3" y="5" width="18" height="16" rx="3" /><path d="M7 3v4m10-4v4M3 11h18m-13 5 3 3 5-5" />
+        break;
+    case "personas":
+        <circle cx="9" cy="8" r="3" /><path d="M3 21v-2a6 6 0 0 1 12 0v2m1-16a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 5" />
+        break;
+    case "informe":
+        <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Zm0 0v6h6M8 16v2m4-5v5m4-3v3" />
+        break;
+    case "servicios":
+        <circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="m8 8 12 12M8 16 20 4m-7 8-2-2" />
+        break;
+    default:
+        <ellipse cx="7" cy="7" rx="2" ry="3" transform="rotate(-25 7 7)" /><ellipse cx="17" cy="7" rx="2" ry="3" transform="rotate(25 17 7)" />
+        <ellipse cx="3" cy="12" rx="1.6" ry="2.4" transform="rotate(-30 3 12)" /><ellipse cx="21" cy="12" rx="1.6" ry="2.4" transform="rotate(30 21 12)" />
+        <path d="M12 11c-2 0-3 2-5 4-4 4 0 7 3 5a4 4 0 0 1 4 0c3 2 7-1 3-5-2-2-3-4-5-4Z" />
+        break;
+}
+</svg>

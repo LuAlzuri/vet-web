@@ -1,0 +1,21 @@
+@if (User.Identity?.IsAuthenticated == true && User.FindFirst(VetWeb.Services.RolSesion.Claim) is not null)
+{
+    <nav class="navegacion-movil" aria-label="Accesos rápidos">
+        <a asp-controller="Inicio" asp-action="Indice"><partial name="_Icono" model='@("inicio")' /><span>Inicio</span></a>
+        @if (User.IsInRole("Tutor"))
+        {
+            <a asp-controller="Perros" asp-action="MisPerros"><partial name="_Icono" model='@("huella")' /><span>Mis perros</span></a>
+            <a asp-controller="Turnos" asp-action="MisTurnos"><partial name="_Icono" model='@("calendario")' /><span>Mis turnos</span></a>
+        }
+        else if (User.IsInRole("Veterinario"))
+        {
+            <a asp-controller="Turnos" asp-action="Listado"><partial name="_Icono" model='@("calendario")' /><span>Mi agenda</span></a>
+            <a asp-controller="Tutores" asp-action="Listado"><partial name="_Icono" model='@("personas")' /><span>Tutores</span></a>
+        }
+        else if (User.IsInRole(VetWeb.Services.RolSesion.Administrador))
+        {
+            <a asp-controller="Veterinarios" asp-action="Listado"><partial name="_Icono" model='@("personas")' /><span>Veterinarios</span></a>
+            <a asp-controller="Informes" asp-action="Listado"><partial name="_Icono" model='@("informe")' /><span>Informes</span></a>
+        }
+    </nav>
+}

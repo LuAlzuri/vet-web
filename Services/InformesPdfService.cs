@@ -8,7 +8,7 @@ namespace VetWeb.Services;
 
 public class InformesPdfService
 {
-    private const string Azul = "#173E52";
+    private const string Azul = "#153E42";
     private const string Borde = "#D7E2E8";
     private static readonly CultureInfo Cultura = CultureInfo.GetCultureInfo("es-AR");
     public static string Archivo(TipoInforme tipo) => tipo switch
@@ -27,7 +27,7 @@ public class InformesPdfService
         pagina.Header().BorderBottom(1).BorderColor(Borde).PaddingBottom(10).Column(c =>
         {
             c.Spacing(4);
-            c.Item().Text("VETERINARIA EL REFUGIO · VETWEB").FontSize(9).FontColor(Azul);
+            c.Item().Text("VETEWEB · VETERINARIA EL REFUGIO").FontSize(9).FontColor(Azul);
             c.Item().Text(InformesService.Titulo(informe.Tipo)).FontSize(21).SemiBold().FontColor(Azul);
             c.Item().Text($"Período: {Fecha(informe.Desde)} al {Fecha(informe.Hasta)} · Hora argentina");
         });
@@ -38,7 +38,7 @@ public class InformesPdfService
             c.Item().Text(informe.AuditoriaDesdeUtc is DateTime inicio
                 ? $"Primer evento de auditoría registrado: {Reloj.EnArgentina(inicio):dd/MM/yyyy HH:mm:ss} (Argentina). No se reconstruyen eventos anteriores."
                 : "Todavía no hay eventos de auditoría registrados. No se reconstruyen eventos anteriores.").FontSize(9).FontColor(Colors.Grey.Darken2);
-            c.Item().Background("#E9F3F5").Padding(12).Text($"Total: {informe.Total.ToString("N0", Cultura)}").FontSize(18).SemiBold();
+            c.Item().Background("#D8F4F2").Padding(12).Text($"Total: {informe.Total.ToString("N0", Cultura)}").FontSize(18).SemiBold();
             if (informe.Tipo == TipoInforme.FrecuenciaSolicitudes)
                 c.Item().Element(x => Tabla(x, ["Fecha de solicitud", "Solicitudes"],
                     informe.Solicitudes.Select(s => new[] { Fecha(s.Fecha), s.Cantidad.ToString(Cultura) })));
@@ -53,7 +53,7 @@ public class InformesPdfService
                     c.Item().Text("Patologías actuales asociadas").FontSize(14).SemiBold().FontColor(Azul);
                     c.Item().Text("Cada patología se cuenta una vez por atención, aunque haya varios servicios pendientes.").FontSize(9);
                     c.Item().Element(x => Tabla(x, ["Patología", "Atenciones"],
-                        informe.Patologias.Select(p => new[] { p.Descripcion, p.Cantidad.ToString(Cultura) })));
+                        informe.Patologias.Select(p => new[] { p.Descripcion, p.Cantidad.ToString(Cultura) }), "No hay patologías asociadas."));
                 }
             }
         });
@@ -65,10 +65,11 @@ public class InformesPdfService
     })).GeneratePdf();
 
     private static string Fecha(DateOnly fecha) => fecha.ToString("dd/MM/yyyy", Cultura);
-    private static void Tabla(IContainer contenedor, string[] columnas, IEnumerable<string[]> filas)
+    private static void Tabla(IContainer contenedor, string[] columnas, IEnumerable<string[]> filas,
+        string sinDatos = "No hay datos para el período seleccionado.")
     {
         var datos = filas.ToList();
-        if (datos.Count == 0) { contenedor.Text("No hay datos para el período seleccionado."); return; }
+        if (datos.Count == 0) { contenedor.Text(sinDatos); return; }
         contenedor.Table(tabla =>
         {
             tabla.ColumnsDefinition(c => { foreach (var _ in columnas) c.RelativeColumn(); });

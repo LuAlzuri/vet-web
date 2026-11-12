@@ -1,90 +1,66 @@
-@{ ViewData["Title"] = "Inicio"; }
-@if (User.Identity?.IsAuthenticated != true) {
-    <div class="inicio-publico">
-        <section class="bienvenida" aria-labelledby="titulo-bienvenida">
-            <div class="bienvenida-contenido">
-                <span class="inicio-etiqueta">Un espacio pensado para ellos</span>
-                <h1 id="titulo-bienvenida">Más mimos.<br />Más bienestar.<br /><span>Más colitas felices.</span></h1>
-                <p>Sabemos que tu perro es parte de tu familia. En VetWeb queremos acompañarte en su cuidado, con una experiencia cercana, sencilla y llena de cariño.</p>
-                <div class="bienvenida-acciones">
-                    <a class="btn btn-primary" asp-area="Identity" asp-page="/Account/Login">Ingresar a mi cuenta <span aria-hidden="true">↗</span></a>
-                    <a class="inicio-enlace" href="#su-cuidado">Conocé nuestro espacio <span aria-hidden="true">↓</span></a>
-                </div>
-                <div class="bienvenida-detalle"><span aria-hidden="true">♥</span> Porque su bienestar también es tu tranquilidad.</div>
+@{ ViewData["Title"] = "Inicio"; ViewData["BodyClass"] = User.Identity?.IsAuthenticated == true ? "pagina-inicio" : "pagina-bienvenida"; }
+@if (User.Identity?.IsAuthenticated != true)
+{
+    <section class="portada" aria-labelledby="titulo-portada">
+        <div class="portada-contenido">
+            <span class="etiqueta-seccion">EL REFUGIO · PELUQUERÍA CANINA</span>
+            <h1 id="titulo-portada">Su bienestar,<br /><span>siempre cerca.</span></h1>
+            <p>Turnos, cuidados y su historia en un mismo lugar. Con VeteWeb, acompañar a tu compañero es un poquito más simple.</p>
+            <a class="btn btn-rosa btn-lg" asp-area="Identity" asp-page="/Account/Login">Ingresar a mi cuenta <span aria-hidden="true"><partial name="_Icono" model='@("flecha")' /></span></a>
+            <p class="portada-nota">La cuenta te la proporciona la veterinaria.</p>
+        </div>
+        <div class="portada-marca" aria-label="VeteWeb, el espacio de cuidado de El Refugio">
+            <img src="~/images/brand/veteweb-logo.svg" alt="" width="140" height="140" />
+            <span class="portada-nombre">VeteWeb</span>
+            <span class="portada-subtitulo">Pequeños cuidados.<br />Grandes compañeros.</span>
+            <span class="portada-sello"><partial name="_Icono" model='@("huella")' /> Hecho para cuidarlos</span>
+        </div>
+    </section>
+    <section class="servicios-inicio" aria-labelledby="titulo-cuidados">
+        <div class="seccion-cabecera"><span class="etiqueta-seccion">TODO A MANO</span><h2 id="titulo-cuidados">Más tiempo para estar juntos.</h2></div>
+        <div class="panel-atajos">
+            <article class="panel-atajo"><span class="atajo-icono"><partial name="_Icono" model='@("calendario")' /></span><h3>Su próximo turno</h3><p>Consultá la disponibilidad y organizá su próxima visita.</p></article>
+            <article class="panel-atajo"><span class="atajo-icono atajo-rosa"><partial name="_Icono" model='@("huella")' /></span><h3>Su historia, cerquita</h3><p>Sus datos y atenciones, siempre a mano en tu cuenta.</p></article>
+            <article class="panel-atajo"><span class="atajo-icono"><partial name="_Icono" model='@("servicios")' /></span><h3>El cuidado de siempre</h3><p>El equipo de la veterinaria, acompañándolos en cada paso.</p></article>
+        </div>
+    </section>
+}
+else
+{
+    <section class="inicio-panel" aria-labelledby="titulo-inicio">
+        <div class="panel-bienvenida">
+            <div><span class="etiqueta-seccion">TU ESPACIO EN VETEWEB</span><h1 id="titulo-inicio">Cada cuidado, en un solo lugar.</h1><p>Todo listo para una nueva visita a El Refugio.</p></div>
+            <img class="panel-huella" src="~/images/brand/veteweb-logo.svg" width="76" height="76" alt="" />
+        </div>
+        @if (User.IsInRole(VetWeb.Services.RolSesion.Administrador))
+        {
+            <div class="seccion-cabecera"><h2>Administración</h2><p>Una mirada completa para acompañar al equipo.</p></div>
+            <div class="panel-atajos">
+                <a class="panel-atajo" asp-controller="Veterinarios" asp-action="Listado"><span class="atajo-icono"><partial name="_Icono" model='@("personas")' /></span><h3>Veterinarios</h3><p>Gestioná los profesionales del equipo.</p><span class="atajo-ir">Gestionar veterinarios <span aria-hidden="true"><partial name="_Icono" model='@("flecha")' /></span></span></a>
+                <a class="panel-atajo" asp-controller="Auditoria" asp-action="Listado"><span class="atajo-icono atajo-rosa"><partial name="_Icono" model='@("informe")' /></span><h3>Auditoría</h3><p>Consultá los movimientos y su historial.</p><span class="atajo-ir">Ver movimientos <span aria-hidden="true"><partial name="_Icono" model='@("flecha")' /></span></span></a>
+                <a class="panel-atajo" asp-controller="Informes" asp-action="Listado"><span class="atajo-icono"><partial name="_Icono" model='@("informe")' /></span><h3>Informes</h3><p>Explorá las solicitudes y las atenciones por período.</p><span class="atajo-ir">Consultar informes <span aria-hidden="true"><partial name="_Icono" model='@("flecha")' /></span></span></a>
             </div>
-            <div class="bienvenida-imagen">
-                <img src="~/images/inicio/perro-bienvenida.jpg" asp-append-version="true" alt="Perro de pelo marrón y blanco disfrutando al aire libre" width="720" height="1600" fetchpriority="high" />
-                <div class="bienvenida-sello"><span aria-hidden="true">♥</span><div>Pequeños cuidados.<br /><strong>Grandes momentos juntos.</strong></div></div>
+        }
+        @if (User.IsInRole("Veterinario"))
+        {
+            <div class="seccion-cabecera"><h2>Administración veterinaria</h2><p>Tu agenda y tus pacientes, más cerca.</p></div>
+            <div class="panel-atajos">
+                <a class="panel-atajo" asp-controller="Turnos" asp-action="Listado"><span class="atajo-icono"><partial name="_Icono" model='@("calendario")' /></span><h3>Mi agenda</h3><p>Organizá los turnos y registrá cada atención.</p><span class="atajo-ir">Ver agenda <span aria-hidden="true"><partial name="_Icono" model='@("flecha")' /></span></span></a>
+                <a class="panel-atajo" asp-controller="Perros" asp-action="Listado"><span class="atajo-icono atajo-rosa"><partial name="_Icono" model='@("huella")' /></span><h3>Perros</h3><p>Sus datos, cuidados e historia clínica.</p><span class="atajo-ir">Ver pacientes <span aria-hidden="true"><partial name="_Icono" model='@("flecha")' /></span></span></a>
+                <a class="panel-atajo" asp-controller="Tutores" asp-action="Listado"><span class="atajo-icono"><partial name="_Icono" model='@("personas")' /></span><h3>Tutores</h3><p>Gestioná sus cuentas, contactos y vetos.</p><span class="atajo-ir">Ver tutores <span aria-hidden="true"><partial name="_Icono" model='@("flecha")' /></span></span></a>
+                <a class="panel-atajo" asp-controller="CuposDiarios" asp-action="Listado"><span class="atajo-icono"><partial name="_Icono" model='@("calendario")' /></span><h3>Cupos disponibles</h3><p>Prepará la disponibilidad para las próximas visitas.</p><span class="atajo-ir">Administrar cupos <span aria-hidden="true"><partial name="_Icono" model='@("flecha")' /></span></span></a>
+                <a class="panel-atajo" asp-controller="Servicios" asp-action="Listado"><span class="atajo-icono atajo-rosa"><partial name="_Icono" model='@("servicios")' /></span><h3>Servicios</h3><p>Administrá las opciones de peluquería.</p><span class="atajo-ir">Ver servicios <span aria-hidden="true"><partial name="_Icono" model='@("flecha")' /></span></span></a>
             </div>
-        </section>
-
-        <section class="inicio-cuidados" id="su-cuidado" aria-labelledby="titulo-cuidados">
-            <div class="inicio-seccion-titulo">
-                <span class="inicio-etiqueta">Cuidarlos se siente bien</span>
-                <h2 id="titulo-cuidados">Su mundo es más lindo cuando está bien.</h2>
-                <p>Un espacio para organizar sus cuidados y dedicarle más tiempo a lo que más disfruta: estar con vos.</p>
+        }
+        @if (User.IsInRole("Tutor"))
+        {
+            <div class="seccion-cabecera"><h2>Mi espacio como tutor</h2><p>Un lugar para cuidar de quien siempre está con vos.</p></div>
+            <div class="panel-atajos">
+                <a class="panel-atajo" asp-controller="Perros" asp-action="MisPerros"><span class="atajo-icono atajo-rosa"><partial name="_Icono" model='@("huella")' /></span><h3>Mis perros</h3><p>Conocé sus datos y consultá su historial.</p><span class="atajo-ir">Ver mis perros <span aria-hidden="true"><partial name="_Icono" model='@("flecha")' /></span></span></a>
+                <a class="panel-atajo" asp-controller="Turnos" asp-action="MisTurnos"><span class="atajo-icono"><partial name="_Icono" model='@("calendario")' /></span><h3>Mis turnos</h3><p>Seguí tus solicitudes y próximas visitas.</p><span class="atajo-ir">Ver mis turnos <span aria-hidden="true"><partial name="_Icono" model='@("flecha")' /></span></span></a>
+                <a class="panel-atajo" asp-controller="CuposDiarios" asp-action="Disponibles"><span class="atajo-icono"><partial name="_Icono" model='@("calendario")' /></span><h3>Próxima visita</h3><p>Buscá un día disponible para su atención.</p><span class="atajo-ir">Consultar cupos <span aria-hidden="true"><partial name="_Icono" model='@("flecha")' /></span></span></a>
             </div>
-            <div class="row g-4">
-                <div class="col-md-4"><article class="cuidado-card cuidado-card-verde h-100">
-                    <span class="cuidado-icono" aria-hidden="true">✂</span>
-                    <h3>Peluquería con cariño</h3>
-                    <p>Un momento para renovar su look y acompañar su bienestar. Consultá los servicios y organizá su próximo turno desde tu cuenta.</p>
-                    <span class="cuidado-pie">Para sentirse tan bien como se ve</span>
-                </article></div>
-                <div class="col-md-4"><article class="cuidado-card cuidado-card-durazno h-100">
-                    <span class="cuidado-icono" aria-hidden="true">♡</span>
-                    <h3>Cada perro es único</h3>
-                    <p>Su información, su historia y sus necesidades, en un mismo lugar. Tené a mano sus datos para acompañarlo en cada etapa.</p>
-                    <span class="cuidado-pie">Conocernos es parte del cuidado</span>
-                </article></div>
-                <div class="col-md-4"><article class="cuidado-card cuidado-card-lila h-100">
-                    <span class="cuidado-icono" aria-hidden="true">☀</span>
-                    <h3>Más simple para vos</h3>
-                    <p>Consultá los cupos disponibles, solicitá un turno y seguí tus solicitudes. Menos vueltas y más momentos para compartir.</p>
-                    <span class="cuidado-pie">Todo listo para su próxima visita</span>
-                </article></div>
-            </div>
-        </section>
-
-        <section class="inicio-acceso" aria-labelledby="titulo-acceso">
-            <div><span class="inicio-etiqueta">Tu compañero, siempre presente</span><h2 id="titulo-acceso">Sus cuidados, a un clic de distancia.</h2><p>Para ingresar necesitás una cuenta proporcionada por la veterinaria.</p></div>
-            <a class="btn btn-primary" asp-area="Identity" asp-page="/Account/Login">Iniciar sesión <span aria-hidden="true">→</span></a>
-        </section>
-    </div>
-} else {
-<div class="inicio-panel">
-<h1>Peluquería canina</h1>
-@if (User.IsInRole("Veterinario")) {
-    <p>Ingresaste como <strong>Veterinario</strong>.</p>
-} else if (User.IsInRole("Tutor")) {
-    <p>Ingresaste como <strong>Tutor</strong>.</p>
-}
-@if (User.Identity?.IsAuthenticated == true) {
-    <p class="text-muted">Estás trabajando con el rol indicado en el menú. Si tu cuenta tiene otro rol, podés elegirlo desde tu nombre y Cambiar rol.</p>
-}
-<div class="row g-3">
-@if (User.IsInRole(VetWeb.Services.RolSesion.Administrador)) {
-    <div class="col-md-6"><section class="card h-100"><div class="card-body">
-    <h2 class="h4">Administración</h2>
-    <a class="btn btn-primary" asp-controller="Veterinarios" asp-action="Listado">Gestionar veterinarios</a>
-    <a class="btn btn-outline-primary" asp-controller="Informes" asp-action="Listado">Consultar informes</a>
-    </div></section></div>
-}
-@if (User.IsInRole("Veterinario")) {
-    <div class="col-md-6"><section class="card h-100"><div class="card-body">
-    <h2 class="h4">Administración veterinaria</h2><p>Administrá los tutores, perros, cupos y turnos de la veterinaria.</p>
-    <a class="btn btn-primary" asp-controller="Turnos" asp-action="Listado">Mi agenda</a>
-    <a class="btn btn-outline-primary" asp-controller="Tutores" asp-action="Listado">Tutores</a>
-    </div></section></div>
-}
-@if (User.IsInRole("Tutor")) {
-    <div class="col-md-6"><section class="card h-100"><div class="card-body">
-    <h2 class="h4">Mi espacio como tutor</h2><p>Consultá tus perros y su historial, solicitá turnos y cancelá tus solicitudes.</p>
-    <a class="btn btn-primary" asp-controller="Turnos" asp-action="MisTurnos">Mis turnos</a>
-    <a class="btn btn-outline-primary" asp-controller="Perros" asp-action="MisPerros">Mis perros</a>
-    <a class="btn btn-outline-secondary mt-2" asp-controller="CuposDiarios" asp-action="Disponibles">Cupos disponibles</a>
-    </div></section></div>
-}
-</div>
-</div>
+        }
+        <p class="panel-sesion">Estás trabajando con el rol indicado en el menú. Si tenés otro perfil, podés elegirlo desde tu nombre y <strong>Cambiar rol</strong>.</p>
+    </section>
 }

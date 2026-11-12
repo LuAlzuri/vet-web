@@ -1,6 +1,10 @@
-# VetWeb
+# VeteWeb
 
 Aplicación ASP.NET Core MVC para gestionar tutores, perros y turnos de peluquería canina de una veterinaria. Usa Identity, PostgreSQL, EF Core y Bootstrap local.
+
+## Identidad visual
+
+La web usa la marca **VeteWeb**, con el logo y la estética de VeteApp adaptados a escritorio y móvil: turquesa, verde oscuro, rosa suave y tarjetas redondeadas. Ver [referencias, alcance y validación visual](docs/DISENO_VISUAL.md). `VetWeb` se conserva como nombre técnico de la solución y los namespaces.
 
 ## Estado actual
 
@@ -8,7 +12,7 @@ CRUDs principales implementados con acciones en español, DTOs de formulario, vi
 
 El repositorio conserva el historial de migraciones. Las cuentas y los perfiles disponibles dependen de cada instalación. Los seis estados del circuito se cargan por migración y no se pueden modificar desde la aplicación. Servicios conserva su CRUD en el menú; los demás catálogos se eligen y amplían desde los formularios correspondientes.
 
-VetWeb admite vetos manuales y automáticos, reservas presenciales y auditoría de turnos y vetos. Administrador dispone de grillas e informes PDF por período.
+VeteWeb admite vetos manuales y automáticos, reservas presenciales y auditoría de turnos y vetos. Administrador dispone de grillas e informes PDF por período.
 
 ## Abrir y ejecutar
 
@@ -224,6 +228,10 @@ FechaNacimiento y FechaCupo se almacenan como date. Los instantes del modelo Vet
 6. Ingresar como veterinario, confirmar el turno, registrar servicios realizados y completar. Revisar su historial desde ambas cuentas.
 7. Solicitar y cancelar otro turno; comprobar que el cupo se devuelva una sola vez.
 8. Con una cuenta de prueba sin turnos activos, verificar la baja y el bloqueo de acceso incluso si tiene los dos roles.
+
+## Verificación final
+
+La instalación limpia, los recorridos de Administrador, Veterinario y Tutor, y la correspondencia entre DER, EF y PostgreSQL quedaron verificados. Ver [resultados, alcance y comandos de reproducción](VERIFICACION_FINAL.md). El informe anterior `VERIFICACION_HITO.md` conserva el estado histórico de su entrega.
 
 ## Pruebas automatizadas
 
