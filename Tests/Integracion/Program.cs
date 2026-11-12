@@ -339,8 +339,7 @@ try
     await Exito($"/PerrosPatologias/Eliminar?perroId={perroHttp}&patologiaId={patologiaHttp}", new());
     var menuVeterinario = await (await vet.GetAsync("/")).Content.ReadAsStringAsync();
     Verificar(menuVeterinario.Contains("/Servicios/Listado"), "Falta Servicios en el menú.");
-    foreach(var catalogoOculto in new[]{"GruposEtarios","Tamanios","Patologias","Tratamientos","Estados"})
-        Verificar(!menuVeterinario.Contains("/" + catalogoOculto + "/Listado"), "El menú ofrece un catálogo oculto: " + catalogoOculto);
+    Verificar(menuVeterinario.Contains("/Catalogos/Listado"), "Falta el acceso a catálogos en el menú.");
     var formularioPerro = await (await vet.GetAsync("/Perros/ObtenerFormulario")).Content.ReadAsStringAsync();
     Verificar(!formularioPerro.Contains("value=\"-1\"") && !formularioPerro.Contains("NuevoGrupoEtario") && !formularioPerro.Contains("NuevoTamanio"), "Grupo etario o tamaño conservan la opción Otro.");
     var perroConOtros = new Dictionary<string,string> { ["Nombre"] = "No guardar", ["FechaNacimiento"] = fecha,
@@ -730,6 +729,12 @@ try
     await ApiCoberturaPruebas.EjecutarAsync(provider,demoVet,demoDualVet,demoTutor,tutorCliente,administrador,anon,tresRoles,lunaDemo,password,
         await Token(demoVet,"/Turnos/ObtenerFormulario"),await Token(demoTutor,"/Turnos/SolicitarPersonal"),tokenAdmin,
         await Token(demoDualVet,"/Turnos/ObtenerFormulario"));
+    await CatalogosPruebas.EjecutarAsync(provider, demoVet, administrador, demoTutor, anon);
+    var tokenCambioCatalogos = await Token(tresRoles, "/Identity/Cuenta/Salir");
+    await tresRoles.PostAsync("/Cuenta/CambiarRol", new FormUrlEncodedContent(new Dictionary<string,string> { ["__RequestVerificationToken"] = tokenCambioCatalogos }));
+    await ElegirRol(tresRoles, "Tutor");
+    using var catalogosConTutorActivo = await tresRoles.GetAsync("/api/tratamientos");
+    Verificar(catalogosConTutorActivo.StatusCode == HttpStatusCode.Forbidden, "Una cuenta con tres roles conservó acceso de catálogo al activar Tutor.");
 }
 finally
 {

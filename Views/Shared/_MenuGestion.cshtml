@@ -25,3 +25,8 @@
         <li><a class="dropdown-item" asp-controller="CuposDiarios" asp-action="Disponibles">Cupos disponibles</a></li>
     </ul></li>
 }
+
+@if (User.IsInRole("Veterinario") || User.IsInRole(VetWeb.Services.RolSesion.Administrador))
+{
+    <li class="nav-item"><a class="nav-link text-dark" asp-controller="Catalogos" asp-action="Listado">Catálogos</a></li>
+}

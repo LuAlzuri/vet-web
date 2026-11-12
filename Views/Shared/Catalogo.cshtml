@@ -1,5 +1,6 @@
 @model IEnumerable<VetWeb.Dtos.CatalogoDto>
 @{ ViewData["Title"] = ViewBag.Titulo; }
+<a class="btn btn-outline-secondary mb-3" asp-controller="Catalogos" asp-action="Listado">Volver a catálogos</a>
 <div class="d-flex justify-content-between mb-3"><h1 class="h2">@ViewBag.Titulo</h1><button class="btn btn-primary" data-form-url="@Url.Action("ObtenerFormulario")">Agregar</button></div>
 <partial name="_CrudModal" />
 <div class="table-responsive"><table class="table table-striped"><thead><tr><th>Descripción</th><th>Acciones</th></tr></thead><tbody>

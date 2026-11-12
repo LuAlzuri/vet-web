@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using VetWeb.Data;
 namespace VetWeb.Controllers;
-[Authorize(Roles = "Veterinario")]
+[Authorize(Roles = "Veterinario,Administrador")]
 public class EstadosController : Controller
 {
     private readonly ApplicationDbContext _context;

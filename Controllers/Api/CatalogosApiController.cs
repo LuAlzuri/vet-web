@@ -7,7 +7,7 @@ using VetWeb.Dtos;
 using VetWeb.Models;
 using VetWeb.Services;
 namespace VetWeb.Controllers.Api;
-[ApiController, Authorize(Roles = "Veterinario,Tutor")]
+[ApiController, Authorize(Roles = "Veterinario,Tutor,Administrador")]
 public abstract class CatalogoApiController<T>(CatalogoService<T> catalogo) : ControllerBase where T : class, new()
 {
     [HttpGet]
@@ -16,20 +16,20 @@ public abstract class CatalogoApiController<T>(CatalogoService<T> catalogo) : Co
     [HttpGet("{id:int}")]
     public async Task<ActionResult<CatalogoDto>> Obtener(int id)
     { var dato = await catalogo.Consultar().SingleOrDefaultAsync(x => x.Id == id); return dato is null ? NotFound() : Ok(dato); }
-    [HttpPost, Authorize(Roles = "Veterinario")]
+    [HttpPost, Authorize(Roles = "Veterinario,Administrador")]
     public async Task<IActionResult> Crear(CatalogoDto dto)
     {
         if (dto.Id != 0) return BadRequest();
         var id = await catalogo.GuardarAsync(dto);
         return CreatedAtAction(nameof(Obtener), new { id }, await catalogo.Consultar().SingleAsync(x => x.Id == id));
     }
-    [HttpPut("{id:int}"), Authorize(Roles = "Veterinario")]
+    [HttpPut("{id:int}"), Authorize(Roles = "Veterinario,Administrador")]
     public async Task<IActionResult> Modificar(int id, CatalogoDto dto)
     {
         if (dto.Id != 0 && dto.Id != id) return BadRequest();
         dto.Id = id; return await catalogo.GuardarAsync(dto) is null ? NotFound() : NoContent();
     }
-    [HttpDelete("{id:int}"), Authorize(Roles = "Veterinario")]
+    [HttpDelete("{id:int}"), Authorize(Roles = "Veterinario,Administrador")]
     public async Task<IActionResult> Eliminar(int id) => await catalogo.EliminarAsync(id) ? NoContent() : NotFound();
 }
 [Route("api/servicios")]
@@ -38,11 +38,11 @@ public class ServiciosApiController(CatalogoService<Servicio> catalogo) : Catalo
 public class GruposEtariosApiController(CatalogoService<GrupoEtario> catalogo) : CatalogoApiController<GrupoEtario>(catalogo);
 [Route("api/tamanios")]
 public class TamaniosApiController(CatalogoService<Tamanio> catalogo) : CatalogoApiController<Tamanio>(catalogo);
-[Route("api/patologias"), Authorize(Roles = "Veterinario")]
+[Route("api/patologias"), Authorize(Roles = "Veterinario,Administrador")]
 public class PatologiasApiController(CatalogoService<Patologia> catalogo) : CatalogoApiController<Patologia>(catalogo);
-[Route("api/tratamientos"), Authorize(Roles = "Veterinario")]
+[Route("api/tratamientos"), Authorize(Roles = "Veterinario,Administrador")]
 public class TratamientosApiController(CatalogoService<Tratamiento> catalogo) : CatalogoApiController<Tratamiento>(catalogo);
-[ApiController, Route("api/estados"), Authorize(Roles = "Veterinario,Tutor")]
+[ApiController, Route("api/estados"), Authorize(Roles = "Veterinario,Tutor,Administrador")]
 public class EstadosApiController(ApplicationDbContext db) : ControllerBase
 {
     [HttpGet]

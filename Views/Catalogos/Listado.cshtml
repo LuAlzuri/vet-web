@@ -1,0 +1,33 @@
+@{
+    ViewData["Title"] = "Catálogos";
+    var catalogos = new[]
+    {
+        (Titulo: "Servicios", Controlador: "Servicios", Descripcion: "Opciones de peluquería que pueden solicitarse en un turno."),
+        (Titulo: "Grupos etarios", Controlador: "GruposEtarios", Descripcion: "Clasificaciones por etapa de vida de los perros."),
+        (Titulo: "Tamaños", Controlador: "Tamanios", Descripcion: "Opciones de tamaño para las fichas de los perros."),
+        (Titulo: "Patologías", Controlador: "Patologias", Descripcion: "Condiciones de salud que se asocian a cada perro."),
+        (Titulo: "Tratamientos", Controlador: "Tratamientos", Descripcion: "Tratamientos previstos y aplicados durante la atención.")
+    };
+}
+<div class="seccion-cabecera">
+    <span class="etiqueta-seccion">GESTIÓN DE OPCIONES</span>
+    <h1>Catálogos</h1>
+    <p>Consultá, agregá y actualizá las opciones que utiliza la veterinaria. Las opciones con registros asociados no se pueden eliminar.</p>
+</div>
+<div class="panel-atajos">
+    @foreach (var catalogo in catalogos)
+    {
+        <a class="panel-atajo" asp-controller="@catalogo.Controlador" asp-action="Listado">
+            <span class="atajo-icono"><partial name="_Icono" model='@("catalogos")' /></span>
+            <h2 class="h4 mt-3">@catalogo.Titulo</h2>
+            <p>@catalogo.Descripcion</p>
+            <span class="atajo-ir">Administrar <partial name="_Icono" model='@("flecha")' /></span>
+        </a>
+    }
+    <a class="panel-atajo" asp-controller="Estados" asp-action="Listado">
+        <span class="atajo-icono atajo-rosa"><partial name="_Icono" model='@("calendario")' /></span>
+        <h2 class="h4 mt-3">Estados de turnos</h2>
+        <p>Consulta de los estados fijos del circuito. No se pueden crear, editar ni eliminar.</p>
+        <span class="atajo-ir">Consultar <partial name="_Icono" model='@("flecha")' /></span>
+    </a>
+</div>
