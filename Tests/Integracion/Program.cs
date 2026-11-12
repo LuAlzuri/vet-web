@@ -51,6 +51,7 @@ try
         await MigracionAtencionPruebas.EjecutarAsync(db);
         await db.Database.MigrateAsync();
         Verificar(!(await db.Database.GetPendingMigrationsAsync()).Any(), "Quedaron migraciones pendientes.");
+        await ModeloPruebas.EjecutarAsync(db);
         var sinAuditoria = await new InformesService(db).ConsultarAsync(TipoInforme.FrecuenciaSolicitudes,
             new PeriodoInformeDto { Desde = DateOnly.FromDateTime(Reloj.Hoy), Hasta = DateOnly.FromDateTime(Reloj.Hoy) });
         Verificar(sinAuditoria.Total == 0 && sinAuditoria.AuditoriaDesdeUtc is null,

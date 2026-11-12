@@ -2,11 +2,18 @@
 @model VetWeb.Areas.Identity.Pages.Account.LoginModel
 @{
     ViewData["Title"] = "Iniciar sesión";
+    ViewData["BodyClass"] = "pagina-acceso";
 }
-<div class="row justify-content-center">
-    <div class="col-md-6 col-lg-4 acceso-panel">
-        <h1 class="h2">@ViewData["Title"]</h1>
-        <p>Ingresá con la cuenta que te proporcionó la veterinaria.</p>
+<section class="acceso-escena" aria-labelledby="titulo-acceso">
+    <div class="acceso-presentacion">
+        <span class="etiqueta-seccion">EL REFUGIO · PELUQUERÍA CANINA</span>
+        <h2>Un cuidado más cerca.<br />Una preocupación menos.</h2>
+        <p>Sus turnos, su historia y todo lo que necesita para estar bien. Un espacio para acompañarte en cada cuidado.</p>
+        <div class="acceso-nota"><partial name="_Icono" model='@("huella")' /><span>Con el cariño de siempre.<br /><strong>Ahora, también en la web.</strong></span></div>
+    </div>
+    <div class="acceso-panel">
+        <h1 id="titulo-acceso" class="acceso-marca"><partial name="_Marca" /></h1>
+        <p class="acceso-bajada">Ingresá a tu cuenta</p>
         <form method="post" asp-route-returnUrl="@Model.ReturnUrl">
             <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
             <div class="mb-3">
@@ -26,10 +33,11 @@
                 <input asp-for="Input.RememberMe" class="form-check-input" />
                 <label asp-for="Input.RememberMe" class="form-check-label"></label>
             </div>
-            <button type="submit" class="btn btn-primary w-100">Ingresar</button>
+            <button type="submit" class="btn btn-rosa w-100">Ingresar</button>
         </form>
+        <p class="acceso-ayuda">¿Todavía no tenés cuenta?<br /><span>Solicitala en la veterinaria.</span></p>
     </div>
-</div>
+</section>
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
 }
