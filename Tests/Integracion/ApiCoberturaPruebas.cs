@@ -51,7 +51,9 @@ internal static class ApiCoberturaPruebas
             await Codigo(vet, HttpMethod.Post, ruta, new { descripcion = " api EDITADO " + catalogo + " " }, tokenVet, HttpStatusCode.BadRequest);
             await Codigo(vet, HttpMethod.Post, ruta, new { descripcion = "Sin antifalsificación" }, null, HttpStatusCode.BadRequest);
             await Codigo(tutor, HttpMethod.Post, ruta, new { descripcion = "No permitido" }, tokenTutor, HttpStatusCode.Forbidden);
-            await Codigo(admin, HttpMethod.Post, ruta, new { descripcion = "No permitido" }, tokenAdmin, HttpStatusCode.Forbidden);
+            var administrativo = await Crear<CatalogoDto>(admin, ruta, new { descripcion = "API admin " + catalogo }, tokenAdmin);
+            await Codigo(admin, HttpMethod.Put, $"{ruta}/{administrativo.Id}", new { descripcion = "API admin editado " + catalogo }, tokenAdmin, HttpStatusCode.NoContent);
+            await Codigo(admin, HttpMethod.Delete, $"{ruta}/{administrativo.Id}", null, tokenAdmin, HttpStatusCode.NoContent);
             await Codigo(tutor, HttpMethod.Get, ruta, null, null, catalogo is "patologias" or "tratamientos" ? HttpStatusCode.Forbidden : HttpStatusCode.OK);
             await Codigo(vet, HttpMethod.Get, ruta + "?pagina=0", null, null, HttpStatusCode.BadRequest);
             await Codigo(vet, HttpMethod.Delete, $"{ruta}/{dato.Id}", null, tokenVet, HttpStatusCode.NoContent);

@@ -141,6 +141,7 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .form-control:focus, 
 .seccion-cabecera h2 { margin-bottom: .5rem; font-size: clamp(1.4rem, 2.4vw, 1.9rem); letter-spacing: -.035em; }
 .seccion-cabecera p { margin-bottom: 0; color: var(--vet-muted); }
 .panel-atajos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; }
+.panel-atajos-cuatro { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .panel-atajo { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; padding: 1.6rem; border: 1px solid #dce8e4; border-radius: 22px; color: var(--vet-primary); background: var(--vet-surface); text-decoration: none; box-shadow: 0 3px 9px rgb(21 62 66 / 4%); }
 a.panel-atajo { transition: background-color .15s, border-color .15s, transform .15s; }
 a.panel-atajo:hover { background: #e2eeeb; border-color: #9fc4bd; transform: translateY(-2px); }

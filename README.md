@@ -129,6 +129,12 @@ El veto bloquea las solicitudes nuevas. Mientras esté vigente, el veterinario p
 
 La API ofrece `GET` y `POST /api/tutores/{tutorId}/vetos`, `POST /api/tutores/{tutorId}/vetos/{vetoId}/levantar` y `POST /api/turnos/presencial`. Se requiere Veterinario activo. Para aplicar o levantar el veto, enviar JSON con `motivo`. Los POST requieren antifalsificación de la sesión de Identity. Se usa la tabla `Vetos` existente.
 
+## Administración de catálogos
+
+**Veterinario** y **Administrador** pueden ingresar a **Catálogos** desde el menú o su panel de inicio. La pantalla reúne los CRUDs de servicios, grupos etarios, tamaños, patologías y tratamientos, con un enlace de regreso desde cada listado. Se comparten los servicios, validaciones, control de duplicados y restricciones de borrado de opciones referenciadas; las escrituras siguen exigiendo antifalsificación.
+
+Los **estados de turnos** se consultan desde esa pantalla y permanecen fijos. **Tutor** no tiene acceso a la gestión, aunque su cuenta también tenga roles de Administrador o Veterinario asignados. La API de catálogos admite las mismas escrituras para Administrador y Veterinario activos. No se requiere migración.
+
 ## Cobertura de la API
 
 La API permite gestionar perros, su historial y patologías, tutores y teléfonos, veterinarios, catálogos, cupos y servicios por turno. Reutiliza los servicios de la web para las altas, ediciones, bajas y reglas de negocio. Mantiene la cookie de Identity, la antifalsificación y el rol activo; los permisos y la pertenencia se comprueban desde cada endpoint.
@@ -277,7 +283,7 @@ SweetAlert2 11.26.25 está incluido localmente en wwwroot/lib/sweetalert2, con s
 
 ## Catálogos dentro de los formularios
 
-El menú del veterinario muestra únicamente Servicios como catálogo independiente. Grupo etario y tamaño se eligen desde el formulario del perro; las patologías se vinculan desde el botón Patologías de cada perro; los tratamientos se registran desde el turno. Grupo etario y tamaño permiten únicamente seleccionar opciones existentes, sin Otro…. Las listas de patologías y tratamientos consultan la base y ofrecen Otro… al veterinario para ingresar una descripción de hasta 100 caracteres. Esa opción muestra un campo adicional y lo exige solo mientras esté seleccionada.
+Veterinario y Administrador disponen del acceso Catálogos desde el menú y el inicio, con CRUD de servicios, grupos etarios, tamaños, patologías y tratamientos. Estados queda disponible solo para consulta. Servicios conserva además su acceso directo para Veterinario. Grupo etario y tamaño se eligen desde el formulario del perro; las patologías se vinculan desde el botón Patologías de cada perro; los tratamientos se registran desde el turno. Grupo etario y tamaño permiten únicamente seleccionar opciones existentes, sin Otro…. Las listas de patologías y tratamientos consultan la base y ofrecen Otro… al veterinario para ingresar una descripción de hasta 100 caracteres. Esa opción muestra un campo adicional y lo exige solo mientras esté seleccionada.
 
 La opción nueva y el registro que la utiliza se guardan en la misma transacción. Se normalizan espacios y se reutiliza una descripción existente sin distinguir mayúsculas y minúsculas; un formulario inválido no crea opciones sueltas. Las altas simultáneas de una misma descripción se coordinan con un bloqueo transaccional de PostgreSQL. En la edición de una asociación PerroPatologia no se modifican sus claves; para cambiarla se agrega otra asociación.
 
