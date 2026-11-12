@@ -19,3 +19,18 @@
 }
 
 @media print { .chatbot { display: none; } }
+
+.chatbot-con-herramientas .chatbot-panel { width: 560px; }
+.chatbot-herramientas { overflow-y: auto; min-height: 0; max-height: 340px; padding: .5rem 1rem; border-top: 1px solid #d8f4f2; font-size: .85rem; flex: 1 1 auto; }
+.chatbot-herramientas[hidden], .chatbot-busqueda[hidden] { display: none; }
+.chatbot-resultado > p { margin: .7rem 0; }
+.chatbot-opciones { display: flex; flex-wrap: wrap; gap: .4rem; }
+.chatbot-opciones .btn { text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.chatbot-grilla { overflow-x: auto; max-width: 100%; margin: .5rem 0; }
+.chatbot-grilla table { min-width: 100%; color: #153e42; }
+.chatbot-grilla td { min-width: 100px; max-width: 260px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chatbot-grilla caption { caption-side: top; color: #153e42; font-weight: 650; }
+.chatbot-busqueda { margin-top: .75rem; }
+.chatbot-busqueda input { min-width: 0; }
+.chatbot-con-herramientas .chatbot-mensajes { min-height: 0; max-height: 100px; flex-shrink: 1; }
+.chatbot-con-herramientas .chatbot-formulario, .chatbot-cabecera, .chatbot-aviso, .chatbot-estado { flex-shrink: 0; }
