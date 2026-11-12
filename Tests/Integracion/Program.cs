@@ -38,6 +38,7 @@ services.AddDbContext<ApplicationDbContext>(o => o.UseNpgsql(prueba.ConnectionSt
 services.AddIdentityCore<ApplicationUser>(o => { o.User.RequireUniqueEmail = true; o.Password.RequiredLength = 8; })
     .AddRoles<IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>();
 services.AddScoped<CuentaService>(); services.AddScoped<TurnoService>(); services.AddScoped<CatalogosFormularioService>();
+services.AddScoped<VetoService>();
 await using var provider = services.BuildServiceProvider();
 string vetId = "", tutorId = "", otroId = "", dualId = "";
 int perroId = 0, otroPerroId = 0, cupoId = 0, servicioId = 0, vetPerfil = 0, dualPerfil = 0, turnoId = 0;
@@ -565,6 +566,55 @@ try
         "El turno no se canceló o se permitió devolver plazas dos veces.");
     cuposApi = await demoDual.GetFromJsonAsync<List<CupoDiarioDto>>("/api/cupos");
     Verificar(cuposApi!.Single(x => x.Id == cupoCompartido).NumeroCuposDisponibles == 2, "No se devolvieron ambas plazas.");
+    int tutorVetoId;
+    await using (var scope = provider.CreateAsyncScope())
+        tutorVetoId = await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Perros
+            .Where(x => x.Id == miloDemo).Select(x => x.TutorId).SingleAsync();
+    var urlVetos = $"/api/tutores/{tutorVetoId}/vetos";
+    var tokenVeto = await Token(demoDualVet, $"/Vetos/ObtenerFormulario?tutorId={tutorVetoId}");
+    var altaVeto = await demoDualVet.PostAsync($"/Vetos/Guardar?tutorId={tutorVetoId}",
+        new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = tokenVeto, ["Motivo"] = "Veto manual de prueba"
+        }));
+    Verificar(altaVeto.IsSuccessStatusCode && (await altaVeto.Content.ReadAsStringAsync()).Contains("true"), "Falló el veto manual desde la web.");
+    var veto = (await demoDualVet.GetFromJsonAsync<List<VetoDto>>(urlVetos))!.Single();
+    Verificar(veto.Vigente && veto.Motivo == "Veto manual de prueba", "La API no muestra el veto registrado.");
+    Verificar((await demoDual.GetAsync(urlVetos)).StatusCode == HttpStatusCode.Forbidden, "El tutor accedió al historial privado de vetos.");
+    var fichaVetos = await (await demoDualVet.GetAsync($"/Vetos/Listado?tutorId={tutorVetoId}")).Content.ReadAsStringAsync();
+    Verificar(fichaVetos.Contains("Levantar veto") && fichaVetos.Contains("Reserva presencial"), "Faltan acciones en la ficha de vetos.");
+    var formPresencial = await (await demoDualVet.GetAsync($"/Turnos/SolicitarPresencial?tutorId={tutorVetoId}")).Content.ReadAsStringAsync();
+    Verificar(formPresencial.Contains("GuardarPresencial") && formPresencial.Contains("Milo") && !formPresencial.Contains("Luna"),
+        "El formulario presencial no acota los perros al tutor.");
+    async Task<HttpResponseMessage> PostApi(HttpClient cliente, string url, object datos, string token)
+    {
+        using var solicitud = new HttpRequestMessage(HttpMethod.Post, url) { Content = JsonContent.Create(datos) };
+        solicitud.Headers.Add("RequestVerificationToken", token);
+        return await cliente.SendAsync(solicitud);
+    }
+    var datosReserva = new TurnoDto { PerroId = miloDemo, CupoDiarioId = cupoCompartido, ServicioIds = new() { servicioDemo } };
+    using var bloqueadoVeto = await PostApi(demoDual, "/api/turnos", datosReserva, tokenSolicitudCompartida);
+    Verificar(bloqueadoVeto.StatusCode == HttpStatusCode.BadRequest, "El tutor vetado pudo solicitar un turno.");
+    using var intentoTutorPresencial = await PostApi(demoDual, "/api/turnos/presencial", datosReserva, tokenSolicitudCompartida);
+    Verificar(intentoTutorPresencial.StatusCode == HttpStatusCode.Forbidden, "El tutor pudo usar la excepción presencial.");
+    using var repetido = await PostApi(demoDualVet, urlVetos, new { motivo = "Duplicado" }, tokenVeto);
+    Verificar(repetido.StatusCode == HttpStatusCode.BadRequest, "Se admitieron dos vetos vigentes para el mismo tutor.");
+    using var presencial = await PostApi(demoDualVet, "/api/turnos/presencial", datosReserva, tokenVeto);
+    Verificar(presencial.StatusCode == HttpStatusCode.Created, "Falló la reserva presencial para un tutor vetado.");
+    var reservaPresencial = (await presencial.Content.ReadFromJsonAsync<TurnoRespuestaDto>())!;
+    Verificar(veto.VeterinarioId is not null && reservaPresencial.VeterinarioId == veto.VeterinarioId
+        && reservaPresencial.CantidadReservada == 1, "La reserva presencial no quedó asignada al veterinario que la registró.");
+    using var duplicadoPresencial = await PostApi(demoDualVet, "/api/turnos/presencial", datosReserva, tokenVeto);
+    Verificar(duplicadoPresencial.StatusCode == HttpStatusCode.BadRequest, "La reserva presencial omitió el control de turnos duplicados.");
+    using var levantar = await PostApi(demoDualVet, $"{urlVetos}/{veto.Id}/levantar", new { motivo = "Fin de prueba" }, tokenVeto);
+    Verificar(levantar.StatusCode == HttpStatusCode.NoContent, "No se pudo levantar el veto.");
+    var historialVeto = (await demoDualVet.GetFromJsonAsync<List<VetoDto>>(urlVetos))!.Single();
+    Verificar(!historialVeto.Vigente && historialVeto.MotivoFinVeto == "Fin de prueba", "El levantamiento no conservó el historial.");
+    using var cancelarPresencial = await PostApi(demoDual, $"/api/turnos/{reservaPresencial.Id}/cancelar", new { }, tokenSolicitudCompartida);
+    Verificar(cancelarPresencial.StatusCode == HttpStatusCode.NoContent, "No se pudo cancelar la reserva presencial.");
+    using var restaurada = await PostApi(demoDual, "/api/turnos", datosReserva, tokenSolicitudCompartida);
+    Verificar(restaurada.StatusCode == HttpStatusCode.Created, "El tutor sigue bloqueado después de levantar el veto.");
+    Console.WriteLine("Vetos: historial, bloqueo, reserva presencial, permisos y levantamiento verificados.");
     Console.WriteLine("Agenda profesional: turnos asignados privados, URLs y operaciones ajenas bloqueadas, No especifica visible y operativo para todos.");
     var inicioVet = await (await demoVet.GetAsync("/")).Content.ReadAsStringAsync();
     var inicioTutor = await (await demoTutor.GetAsync("/")).Content.ReadAsStringAsync();

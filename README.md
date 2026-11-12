@@ -8,7 +8,7 @@ CRUDs principales implementados con acciones en español, DTOs de formulario, vi
 
 La base local tiene las 20 migraciones aplicadas, incluyendo AgregarFotoPerro. Se conservaron la cuenta inicial y el perfil veterinario con matrícula 45789. Los seis estados del circuito se cargan por migración y no se pueden modificar desde la aplicación. Servicios conserva su CRUD en el menú; los demás catálogos se eligen y amplían desde los formularios correspondientes.
 
-Auditoría, administración de vetos, veto automático y reportes PDF quedan fuera de este hito por decisión del usuario. La entidad Veto existe, pero no tiene controlador, DTO ni servicio. Estos CRUDs no aplican vetos al solicitar turnos.
+VetWeb admite vetos manuales y reservas presenciales. Auditoría, veto automático y reportes PDF se incorporarán en sus respectivos hitos.
 
 ## Abrir y ejecutar
 
@@ -116,6 +116,14 @@ La API ofrece `GET /api/cupos`, `GET /api/turnos`, `GET /api/turnos/{id}` y `POS
 Cada veterinario consulta y administra solo sus turnos y los que tienen No especifica. Esa restricción también se aplica al historial, las URLs de edición y los servicios del turno. Un tutor sigue viendo todos sus propios turnos.
 
 La fecha de un cupo con turnos no se modifica. Para cambiar perro, fecha o veterinario de un turno se cancela y se solicita otro. Los servicios de turnos finalizados quedan de solo lectura. Un servicio realizado no se elimina y un turno debe conservar al menos uno. No se permite cambiar de tutor a un perro con historial. Un perro con turnos activos debe resolverlos antes de su baja lógica.
+
+## Vetos y reservas presenciales
+
+Desde **Tutores → Vetos**, el veterinario puede consultar el historial, aplicar un veto con motivo y levantarlo con el motivo de finalización. Solo se puede aplicar un veto mientras el tutor no tenga otro vigente. El veto manual comienza inmediatamente y queda vigente hasta que un veterinario lo levanta.
+
+El veto bloquea las solicitudes nuevas. Mientras esté vigente, el veterinario puede abrir **Reserva presencial** desde esa misma pantalla. El turno queda solicitado y asignado al profesional que lo registró. La excepción conserva la verificación de vacunas, fechas, cupos disponibles y turnos duplicados.
+
+La API ofrece `GET` y `POST /api/tutores/{tutorId}/vetos`, `POST /api/tutores/{tutorId}/vetos/{vetoId}/levantar` y `POST /api/turnos/presencial`. Se requiere Veterinario activo. Para aplicar o levantar el veto, enviar JSON con `motivo`. Los POST requieren antifalsificación de la sesión de Identity. Se usa la tabla `Vetos` existente.
 
 ## Datos y conservación del historial
 
