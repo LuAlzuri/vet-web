@@ -9,8 +9,10 @@ public class TurnoService
     private readonly ApplicationDbContext _context;
     private readonly CatalogosFormularioService _catalogos;
     private readonly VetoService _vetos;
-    public TurnoService(ApplicationDbContext context, CatalogosFormularioService catalogos, VetoService vetos)
-    { _context = context; _catalogos = catalogos; _vetos = vetos; }
+    private readonly AuditoriaService _auditoria;
+    public TurnoService(ApplicationDbContext context, CatalogosFormularioService catalogos, VetoService vetos,
+        AuditoriaService auditoria)
+    { _context = context; _catalogos = catalogos; _vetos = vetos; _auditoria = auditoria; }
 
     public IQueryable<Turno> ConsultarVisibles(string usuarioId, bool esVeterinario)
     {
@@ -71,6 +73,8 @@ public class TurnoService
         _context.Turnos.Add(turno);
         await _context.SaveChangesAsync();
         foreach (var servicio in servicios) _context.ServiciosPorTurno.Add(new ServicioPorTurno { TurnoId = turno.Id, ServicioId = servicio });
+        _auditoria.RegistrarTurno(turno, perro.TutorId, usuarioId, esVeterinario,
+            presencial ? AuditoriaAccion.ReservaPresencial : AuditoriaAccion.TurnoSolicitado);
         await _context.SaveChangesAsync(); await transaction.CommitAsync();
         return turno.Id;
     }
@@ -85,6 +89,8 @@ public class TurnoService
             throw new InvalidOperationException("Para cambiar perro, fecha o veterinario, cancelá el turno y generá otro.");
         if (dto.TratamientoId is not null && dto.TratamientoId != CatalogosFormularioService.Otro && !await _context.Tratamientos.AnyAsync(x => x.Id == dto.TratamientoId)) throw new InvalidOperationException("Seleccioná un tratamiento válido.");
         turno.Observaciones = dto.Observaciones?.Trim(); turno.TratamientoId = await _catalogos.TratamientoAsync(dto.TratamientoId, dto.NuevoTratamiento);
+        var tutorId = await _context.Perros.Where(x => x.Id == turno.PerroId).Select(x => x.TutorId).SingleAsync();
+        _auditoria.RegistrarTurno(turno, tutorId, usuarioId, true, AuditoriaAccion.TurnoEditado);
         await _context.SaveChangesAsync(); await transaction.CommitAsync();
     }
 
@@ -101,8 +107,9 @@ public class TurnoService
         await using var transaction = await _context.Database.BeginTransactionAsync();
         var turno = await BloquearTurnoAsync(id);
         if (esVeterinario && !await PuedeAtenderAsync(turno, usuarioId)) throw new UnauthorizedAccessException();
-        var tutorUsuarioId = await _context.Perros.Where(x => x.Id == turno.PerroId).Select(x => x.Tutor.UserId).SingleAsync();
-        if (!esVeterinario && (tutorUsuarioId != usuarioId || destino != EstadosTurno.CanceladoTutor))
+        var tutor = await _context.Perros.Where(x => x.Id == turno.PerroId)
+            .Select(x => new { x.TutorId, x.Tutor.UserId }).SingleAsync();
+        if (!esVeterinario && (tutor.UserId != usuarioId || destino != EstadosTurno.CanceladoTutor))
             throw new InvalidOperationException("No tenés permiso para esta operación.");
         var permitido = esVeterinario
             ? turno.EstadoId == EstadosTurno.Solicitado && (destino == EstadosTurno.Confirmado || destino == EstadosTurno.Rechazado || destino == EstadosTurno.CanceladoVeterinario)
@@ -124,7 +131,9 @@ public class TurnoService
             cupo.NumeroCuposDisponibles = (int)nuevoDisponible;
         }
         if (cantidad is not null) turno.CantidadReservada = cantidad.Value;
+        var estadoAnterior = turno.EstadoId;
         turno.EstadoId = destino;
+        _auditoria.RegistrarTurno(turno, tutor.TutorId, usuarioId, esVeterinario, AuditoriaAccion.EstadoTurnoCambiado, estadoAnterior);
         await _context.SaveChangesAsync(); await transaction.CommitAsync();
     }
 }

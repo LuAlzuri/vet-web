@@ -1,6 +1,7 @@
 @if (User.IsInRole(VetWeb.Services.RolSesion.Administrador))
 {
     <li class="nav-item"><a class="nav-link text-dark" asp-controller="Veterinarios" asp-action="Listado">Veterinarios</a></li>
+    <li class="nav-item"><a class="nav-link text-dark" asp-controller="Auditoria" asp-action="Listado">Auditoría</a></li>
 }
 @if (User.IsInRole("Veterinario"))
 {

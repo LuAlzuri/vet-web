@@ -39,6 +39,7 @@ services.AddIdentityCore<ApplicationUser>(o => { o.User.RequireUniqueEmail = tru
     .AddRoles<IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>();
 services.AddScoped<CuentaService>(); services.AddScoped<TurnoService>(); services.AddScoped<CatalogosFormularioService>();
 services.AddScoped<VetoService>();
+services.AddScoped<AuditoriaService>();
 await using var provider = services.BuildServiceProvider();
 string vetId = "", tutorId = "", otroId = "", dualId = "";
 int perroId = 0, otroPerroId = 0, cupoId = 0, servicioId = 0, vetPerfil = 0, dualPerfil = 0, turnoId = 0;
@@ -615,6 +616,27 @@ try
     using var restaurada = await PostApi(demoDual, "/api/turnos", datosReserva, tokenSolicitudCompartida);
     Verificar(restaurada.StatusCode == HttpStatusCode.Created, "El tutor sigue bloqueado después de levantar el veto.");
     Console.WriteLine("Vetos: historial, bloqueo, reserva presencial, permisos y levantamiento verificados.");
+    var urlAuditoria = $"/api/auditoria?tutorId={tutorVetoId}";
+    var auditoria = (await administrador.GetFromJsonAsync<AuditoriaPaginaDto>(urlAuditoria))!;
+    Verificar(auditoria.Eventos.All(x => x.TutorId == tutorVetoId), "El filtro de auditoría incluyó otros tutores.");
+    Verificar(auditoria.Eventos.Count(x => x.Entidad == "Veto" && x.EntidadId == veto.Id
+        && x.Accion == AuditoriaAccion.VetoAplicado && x.RolActivo == "Veterinario") == 1,
+        "Falta el evento de veto o se registró un intento rechazado.");
+    Verificar(auditoria.Eventos.Any(x => x.Entidad == "Veto" && x.EntidadId == veto.Id
+        && x.Accion == AuditoriaAccion.VetoLevantado), "Falta el levantamiento en auditoría.");
+    Verificar(auditoria.Eventos.Any(x => x.Entidad == "Turno" && x.EntidadId == reservaPresencial.Id
+        && x.Accion == AuditoriaAccion.ReservaPresencial && x.RolActivo == "Veterinario"), "Falta la reserva presencial en auditoría.");
+    Verificar(auditoria.Eventos.Count(x => x.Entidad == "Turno" && x.EntidadId == turnoCompartido
+        && x.Accion == AuditoriaAccion.EstadoTurnoCambiado && x.EstadoNuevoId == EstadosTurno.CanceladoTutor
+        && x.EstadoAnteriorId == EstadosTurno.Confirmado && x.RolActivo == "Tutor") == 1,
+        "La cancelación del tutor falta, no conserva el estado anterior o se duplicó.");
+    Verificar((await demoDual.GetAsync(urlAuditoria)).StatusCode == HttpStatusCode.Forbidden
+        && (await demoDualVet.GetAsync(urlAuditoria)).StatusCode == HttpStatusCode.Forbidden,
+        "Un rol operativo accedió a la auditoría.");
+    using var pantallaAuditoria = await administrador.GetAsync($"/Auditoria/Listado?tutorId={tutorVetoId}");
+    Verificar(pantallaAuditoria.IsSuccessStatusCode && (await pantallaAuditoria.Content.ReadAsStringAsync()).Contains("Reserva presencial"),
+        "El historial de auditoría no se renderiza en el panel administrativo.");
+    Console.WriteLine("Auditoría: eventos de turnos y vetos, rol activo, filtro y acceso exclusivo de Administrador verificados.");
     Console.WriteLine("Agenda profesional: turnos asignados privados, URLs y operaciones ajenas bloqueadas, No especifica visible y operativo para todos.");
     var inicioVet = await (await demoVet.GetAsync("/")).Content.ReadAsStringAsync();
     var inicioTutor = await (await demoTutor.GetAsync("/")).Content.ReadAsStringAsync();

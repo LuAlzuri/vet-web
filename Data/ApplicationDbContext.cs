@@ -35,6 +35,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<ServicioPorTurno> ServiciosPorTurno { get; set; }
 
     public DbSet<Veto> Vetos { get; set; }
+    public DbSet<AuditoriaAccion> AuditoriaAcciones { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -200,6 +201,16 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasOne(veto => veto.Veterinario).WithMany()
                 .HasForeignKey(veto => veto.VeterinarioId).OnDelete(DeleteBehavior.Restrict);
             entity.HasQueryFilter(veto => !veto.Tutor.Eliminado);
+        });
+
+        builder.Entity<AuditoriaAccion>(entity =>
+        {
+            entity.ToTable("AuditoriaAcciones");
+            entity.Property(x => x.FechaUtc).HasColumnType("timestamp with time zone");
+            entity.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Tutor).WithMany().HasForeignKey(x => x.TutorId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(x => new { x.FechaUtc, x.Id });
+            entity.HasIndex(x => new { x.TutorId, x.FechaUtc, x.Id });
         });
 
         // Identificadores fijos para que las migraciones conserven los mismos roles.
