@@ -28,7 +28,7 @@ else
 <p>Para cambiar perro, fecha o veterinario, cancelá este turno y generá otro. Los servicios se administran desde el listado.</p>
 }
 @if (User.IsInRole("Veterinario") && ViewBag.Personal != true) {
-<div class="mb-3"><label asp-for="TratamientoId" class="form-label"></label><select data-catalogo-otro="nuevoTratamiento" asp-for="TratamientoId" asp-items="ViewBag.Tratamientos" class="form-select"><option value="">Sin tratamiento</option></select><span asp-validation-for="TratamientoId" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="TratamientoId" class="form-label">Tratamiento previsto (opcional)</label><select data-catalogo-otro="nuevoTratamiento" asp-for="TratamientoId" asp-items="ViewBag.Tratamientos" class="form-select"><option value="">Sin tratamiento</option></select><span asp-validation-for="TratamientoId" class="text-danger"></span></div>
 <div id="nuevoTratamiento" class="mb-3" hidden="@(Model.TratamientoId == -1 ? null : "hidden")">
 <label asp-for="NuevoTratamiento" class="form-label"></label>
 <input asp-for="NuevoTratamiento" class="form-control" maxlength="100" disabled="@(Model.TratamientoId == -1 ? null : "disabled")" />

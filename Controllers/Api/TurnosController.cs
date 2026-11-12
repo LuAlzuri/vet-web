@@ -73,7 +73,18 @@ public class TurnosApiController(TurnoService turnos, UserManager<ApplicationUse
 
     [HttpPost("{id:int}/completar")]
     [Authorize(Roles = "Veterinario")]
-    public Task<IActionResult> Completar(int id) => CambiarEstado(id, EstadosTurno.Completado);
+    public async Task<IActionResult> Completar(int id, CompletarTurnoDto dto)
+    {
+        await turnos.CompletarAsync(id, dto, UsuarioId);
+        return NoContent();
+    }
+
+    [HttpGet("{id:int}/atencion")]
+    public async Task<ActionResult<AtencionRespuestaDto>> Atencion(int id)
+    {
+        var datos = await turnos.ConsultarAtencionAsync(id, UsuarioId, EsVeterinario);
+        return datos is null ? NotFound() : Ok(datos);
+    }
 
     [HttpPost("{id:int}/cancelar")]
     public Task<IActionResult> Cancelar(int id) =>

@@ -624,6 +624,25 @@ namespace VetWeb.Data.Migrations
                     b.ToTable("Tratamientos", (string)null);
                 });
 
+            modelBuilder.Entity("VetWeb.Models.TratamientoPorTurno", b =>
+                {
+                    b.Property<int>("TurnoId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TratamientoId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Razon")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.HasKey("TurnoId", "TratamientoId");
+
+                    b.HasIndex("TratamientoId");
+
+                    b.ToTable("TratamientosPorTurno", (string)null);
+                });
+
             modelBuilder.Entity("VetWeb.Models.Turno", b =>
                 {
                     b.Property<int>("Id")
@@ -650,9 +669,6 @@ namespace VetWeb.Data.Migrations
                     b.Property<int>("PerroId")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("TratamientoId")
-                        .HasColumnType("integer");
-
                     b.Property<int?>("VeterinarioId")
                         .HasColumnType("integer");
 
@@ -663,8 +679,6 @@ namespace VetWeb.Data.Migrations
                     b.HasIndex("EstadoId");
 
                     b.HasIndex("PerroId");
-
-                    b.HasIndex("TratamientoId");
 
                     b.HasIndex("VeterinarioId");
 
@@ -927,6 +941,25 @@ namespace VetWeb.Data.Migrations
                     b.Navigation("Tutor");
                 });
 
+            modelBuilder.Entity("VetWeb.Models.TratamientoPorTurno", b =>
+                {
+                    b.HasOne("VetWeb.Models.Tratamiento", "Tratamiento")
+                        .WithMany()
+                        .HasForeignKey("TratamientoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("VetWeb.Models.Turno", "Turno")
+                        .WithMany("Tratamientos")
+                        .HasForeignKey("TurnoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tratamiento");
+
+                    b.Navigation("Turno");
+                });
+
             modelBuilder.Entity("VetWeb.Models.Turno", b =>
                 {
                     b.HasOne("VetWeb.Models.CupoDiario", "CupoDiario")
@@ -947,11 +980,6 @@ namespace VetWeb.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("VetWeb.Models.Tratamiento", "Tratamiento")
-                        .WithMany()
-                        .HasForeignKey("TratamientoId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("VetWeb.Models.Veterinario", "Veterinario")
                         .WithMany()
                         .HasForeignKey("VeterinarioId")
@@ -962,8 +990,6 @@ namespace VetWeb.Data.Migrations
                     b.Navigation("Estado");
 
                     b.Navigation("Perro");
-
-                    b.Navigation("Tratamiento");
 
                     b.Navigation("Veterinario");
                 });
@@ -1018,6 +1044,11 @@ namespace VetWeb.Data.Migrations
                     b.Navigation("Imagen");
 
                     b.Navigation("Patologias");
+                });
+
+            modelBuilder.Entity("VetWeb.Models.Turno", b =>
+                {
+                    b.Navigation("Tratamientos");
                 });
 
             modelBuilder.Entity("VetWeb.Models.Tutor", b =>

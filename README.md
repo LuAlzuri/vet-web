@@ -6,7 +6,7 @@ Aplicación ASP.NET Core MVC para gestionar tutores, perros y turnos de peluquer
 
 CRUDs principales implementados con acciones en español, DTOs de formulario, vistas parciales, modales Bootstrap y AJAX. Los controladores consultan EF Core directamente; CuentaService concentra las operaciones de Identity y TurnoService las reservas y transiciones con transacciones.
 
-La base local tiene las 20 migraciones aplicadas, incluyendo AgregarFotoPerro. Se conservaron la cuenta inicial y el perfil veterinario con matrícula 45789. Los seis estados del circuito se cargan por migración y no se pueden modificar desde la aplicación. Servicios conserva su CRUD en el menú; los demás catálogos se eligen y amplían desde los formularios correspondientes.
+El repositorio conserva el historial de migraciones. Las cuentas y los perfiles disponibles dependen de cada instalación. Los seis estados del circuito se cargan por migración y no se pueden modificar desde la aplicación. Servicios conserva su CRUD en el menú; los demás catálogos se eligen y amplían desde los formularios correspondientes.
 
 VetWeb admite vetos manuales y automáticos, reservas presenciales y auditoría de turnos y vetos. Administrador dispone de grillas e informes PDF por período.
 
@@ -124,6 +124,33 @@ Desde **Tutores → Vetos**, el veterinario puede consultar el historial, aplica
 El veto bloquea las solicitudes nuevas. Mientras esté vigente, el veterinario puede abrir **Reserva presencial** desde esa misma pantalla. El turno queda solicitado y asignado al profesional que lo registró. La excepción conserva la verificación de vacunas, fechas, cupos disponibles y turnos duplicados.
 
 La API ofrece `GET` y `POST /api/tutores/{tutorId}/vetos`, `POST /api/tutores/{tutorId}/vetos/{vetoId}/levantar` y `POST /api/turnos/presencial`. Se requiere Veterinario activo. Para aplicar o levantar el veto, enviar JSON con `motivo`. Los POST requieren antifalsificación de la sesión de Identity. Se usa la tabla `Vetos` existente.
+
+## Registro de la atención
+
+Un Veterinario puede abrir **Registrar atención** desde un turno confirmado de su agenda, a partir de la fecha del cupo (día argentino) o después. El servidor rechaza cierres anticipados aunque se intente llamar directamente a la API. Se conserva la visibilidad de los turnos asignados al profesional y los de **No especifica**.
+
+El formulario confirma la lista definitiva de servicios realizados, varios tratamientos con un motivo opcional por tratamiento y las observaciones generales. Los servicios sin marcar quedan pendientes; un turno puede completarse con servicios incompletos. El tratamiento previsto de la creación o edición aparece seleccionado para su revisión; si se desmarca al cerrar, no queda registrado como aplicado. Los tratamientos del catálogo pueden ampliarse con **Otro…** desde la edición del turno antes de cerrar. No se permiten servicios ajenos o duplicados ni tratamientos inexistentes o repetidos. Los motivos admiten hasta 1000 caracteres y las observaciones hasta 2000.
+
+El estado final, los servicios, los tratamientos, los motivos, las observaciones y el evento de auditoría se guardan en la misma transacción. Completar conserva las plazas reservadas y reinicia el conteo de cancelaciones del tutor. El orden de bloqueo continúa siendo tutor y turno (cupo cuando la transición afecta plazas). Los servicios se administran bajo el bloqueo del mismo turno, por lo que el cierre no puede competir con su edición. Una segunda finalización se rechaza. Los turnos completados no admiten cambios clínicos posteriores.
+
+`POST /api/turnos/{id}/completar` exige Veterinario activo, cookie de Identity y antifalsificación. El cuerpo es:
+
+```json
+{
+  "servicioIdsCompletados": [1, 2],
+  "tratamientos": [
+    { "tratamientoId": 3, "razon": "Piel sensible" },
+    { "tratamientoId": 4, "razon": "Inquietud durante el baño" }
+  ],
+  "observaciones": "Atención finalizada"
+}
+```
+
+Los identificadores deben existir en la instalación. Una lista vacía confirma que no se realizó ningún servicio o tratamiento de ese tipo; no conserva automáticamente marcas anteriores. La respuesta correcta es `204`. El POST web usa `Turnos/Completar` y el mismo servicio. `GET /api/turnos/{id}/atencion` devuelve estado, fecha de finalización UTC tomada de auditoría, observaciones, IDs de servicios realizados y tratamientos con descripción y motivo. Lo pueden consultar el tutor propietario y los veterinarios autorizados para ese turno; los recursos ajenos devuelven `404`. El historial web muestra todos los tratamientos y sus motivos.
+
+La migración **AgregarTratamientoPorTurno** crea `TratamientosPorTurno`, con clave compuesta y FK restringidas, y reemplaza el campo único del turno. Copia las referencias anteriores sin inventar motivos. La reversión solo se permite si el modelo anterior puede representar los datos; se rechaza si hay motivos o varios tratamientos por turno. Ver [DER actualizado](docs/DER.md). Aplicar la migración únicamente a la base de destino indicada por el usuario; el arranque no la aplica automáticamente.
+
+Los informes continúan usando la fecha real de finalización de auditoría y distinguen las atenciones por los servicios finalmente marcados. `Tests/Integracion` verifica actualización desde el esquema anterior con datos, reversión compatible y protección contra pérdida de motivos, instalación desde cero, cierre web/API, fecha mínima, permisos por profesional y tutor, antifalsificación, servicios y tratamientos inválidos, cierre repetido y concurrente, rollback ante fallo de auditoría, conservación de plazas, historial e impacto en informes. Solo utiliza la base temporal del ejecutable.
 
 ## Veto automático por cancelaciones
 

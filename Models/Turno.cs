@@ -31,8 +31,5 @@ public class Turno
     public int EstadoId { get; set; }
     public Estado Estado { get; set; } = null!;
 
-    [Range(1, int.MaxValue, ErrorMessage = "Seleccioná un tratamiento válido.")]
-    [Display(Name = "Tratamiento")]
-    public int? TratamientoId { get; set; }
-    public Tratamiento? Tratamiento { get; set; }
+    public ICollection<TratamientoPorTurno> Tratamientos { get; set; } = new List<TratamientoPorTurno>();
 }
