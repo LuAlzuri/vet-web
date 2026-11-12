@@ -1,0 +1,46 @@
+@model VetWeb.Dtos.CompletarTurnoDto
+<div class="modal-header">
+    <h2 class="modal-title fs-5">Registrar atención del turno #@Model.Id</h2>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+</div>
+<form asp-action="Completar" method="post" data-crud>
+    <div class="modal-body">
+        <div data-error class="alert alert-danger d-none" role="alert"></div>
+        <div asp-validation-summary="All" class="text-danger"></div>
+        <input asp-for="Id" type="hidden" />
+        <p>Confirmá los servicios realizados y los tratamientos aplicados. Al guardar, el turno quedará completado y no podrá editarse.</p>
+        <fieldset class="mb-3"><legend class="fs-6">Servicios realizados</legend>
+        @foreach (var servicio in (IEnumerable<VetWeb.Models.Servicio>)ViewBag.ServiciosAtencion)
+        {
+            <div class="form-check">
+                <input class="form-check-input" id="realizado-@servicio.Id" type="checkbox" name="ServicioIdsCompletados" value="@servicio.Id" checked="@(Model.ServicioIdsCompletados.Contains(servicio.Id) ? "checked" : null)" />
+                <label class="form-check-label" for="realizado-@servicio.Id">@servicio.Descripcion</label>
+            </div>
+        }
+        <p class="form-text">Los servicios sin marcar quedarán pendientes, aunque el turno se complete.</p>
+        </fieldset>
+        <fieldset class="mb-3"><legend class="fs-6">Tratamientos aplicados</legend>
+        <p class="form-text">Marcá los tratamientos realizados y, si corresponde, indicá el motivo de cada uno. Revisá el tratamiento previsto antes de confirmarlo.</p>
+        @foreach (var tratamiento in (IEnumerable<VetWeb.Models.Tratamiento>)ViewBag.TratamientosAtencion)
+        {
+            var actual = Model.Tratamientos.FirstOrDefault(x => x.TratamientoId == tratamiento.Id);
+            <div class="border rounded p-2 mb-2">
+                <div class="form-check">
+                    <input class="form-check-input" id="tratamiento-@tratamiento.Id" type="checkbox" name="Tratamientos.Index" value="@tratamiento.Id" checked="@(actual is not null ? "checked" : null)" />
+                    <label class="form-check-label" for="tratamiento-@tratamiento.Id">@tratamiento.Descripcion</label>
+                </div>
+                <input type="hidden" name="Tratamientos[@tratamiento.Id].TratamientoId" value="@tratamiento.Id" />
+                <label class="form-label mt-2" for="razon-@tratamiento.Id">Motivo de @tratamiento.Descripcion (opcional)</label>
+                <textarea class="form-control" id="razon-@tratamiento.Id" name="Tratamientos[@tratamiento.Id].Razon" maxlength="1000" rows="2">@actual?.Razon</textarea>
+            </div>
+        }
+        </fieldset>
+        <label asp-for="Observaciones" class="form-label"></label>
+        <textarea asp-for="Observaciones" class="form-control" maxlength="2000" rows="3"></textarea>
+        <span asp-validation-for="Observaciones" class="text-danger"></span>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar atención y completar</button>
+    </div>
+</form>

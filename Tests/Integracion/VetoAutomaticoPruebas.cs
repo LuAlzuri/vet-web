@@ -53,8 +53,18 @@ internal static partial class VetoAutomaticoPruebas
                     : await turnos.GuardarAsync(dto, usuario, false);
             });
         }
-        Task Cambiar(int turno, int destino, string usuario, bool vet = false) => Ejecutar(sp =>
-            sp.GetRequiredService<TurnoService>().CambiarEstadoAsync(turno, destino, usuario, vet));
+        Task Cambiar(int turno, int destino, string usuario, bool vet = false) => Ejecutar(async sp =>
+        {
+            var servicio = sp.GetRequiredService<TurnoService>();
+            if (destino == EstadosTurno.Completado)
+            {
+                var db = sp.GetRequiredService<ApplicationDbContext>();
+                await db.CuposDiarios.Where(x => db.Turnos.Any(t => t.Id == turno && t.CupoDiarioId == x.Id))
+                    .ExecuteUpdateAsync(s => s.SetProperty(x => x.FechaCupo, Reloj.Hoy));
+                await servicio.CompletarAsync(turno, new CompletarTurnoDto(), usuario);
+            }
+            else await servicio.CambiarEstadoAsync(turno, destino, usuario, vet);
+        });
         Task<int> Vigentes(int tutor) => Con(sp => sp.GetRequiredService<VetoService>().Vigentes().CountAsync(x => x.TutorId == tutor));
         async Task Rechazar(Func<Task> accion)
         {

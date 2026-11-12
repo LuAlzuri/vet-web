@@ -1,3 +1,4 @@
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using VetWeb.Data;
 using VetWeb.Dtos;
@@ -19,6 +20,22 @@ public class TurnoService
         return esVeterinario
             ? turnos.Where(x => x.VeterinarioId == null || x.Veterinario!.UserId == usuarioId)
             : turnos.Where(x => x.Perro.Tutor.UserId == usuarioId);
+    }
+
+    public async Task<AtencionRespuestaDto?> ConsultarAtencionAsync(int id, string usuarioId, bool esVeterinario)
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead);
+        var turno = await ConsultarVisibles(usuarioId, esVeterinario).SingleOrDefaultAsync(x => x.Id == id);
+        if (turno is null) return null;
+        var fecha = await _context.AuditoriaAcciones.Where(x => x.Entidad == nameof(Turno) && x.EntidadId == id
+                && x.Accion == AuditoriaAccion.EstadoTurnoCambiado && x.EstadoNuevoId == EstadosTurno.Completado)
+            .Select(x => (DateTime?)x.FechaUtc).MinAsync();
+        var servicios = await _context.ServiciosPorTurno.IgnoreQueryFilters().Where(x => x.TurnoId == id && x.Completado)
+            .OrderBy(x => x.ServicioId).Select(x => x.ServicioId).ToListAsync();
+        var tratamientos = await _context.TratamientosPorTurno.IgnoreQueryFilters().Where(x => x.TurnoId == id)
+            .OrderBy(x => x.TratamientoId).Select(x => new TratamientoAtencionRespuestaDto(x.TratamientoId, x.Tratamiento.Descripcion, x.Razon)).ToListAsync();
+        await transaction.CommitAsync();
+        return new AtencionRespuestaDto(id, turno.EstadoId, fecha, turno.Observaciones, servicios, tratamientos);
     }
 
     public Task<int> GuardarAsync(TurnoDto dto, string usuarioId, bool esVeterinario) =>
@@ -66,11 +83,13 @@ public class TurnoService
             throw new InvalidOperationException("El tratamiento debe registrarlo el veterinario.");
         var tratamientoId = esVeterinario ? await _catalogos.TratamientoAsync(dto.TratamientoId, dto.NuevoTratamiento) : null;
         var turno = new Turno { PerroId = dto.PerroId, VeterinarioId = dto.VeterinarioId, CupoDiarioId = dto.CupoDiarioId,
-            EstadoId = EstadosTurno.Solicitado, TratamientoId = tratamientoId,
+            EstadoId = EstadosTurno.Solicitado,
             Observaciones = esVeterinario ? dto.Observaciones?.Trim() : null };
         cupo.NumeroCuposDisponibles--;
         _context.Turnos.Add(turno);
         await _context.SaveChangesAsync();
+        if (tratamientoId.HasValue)
+            _context.TratamientosPorTurno.Add(new TratamientoPorTurno { TurnoId = turno.Id, TratamientoId = tratamientoId.Value });
         foreach (var servicio in servicios) _context.ServiciosPorTurno.Add(new ServicioPorTurno { TurnoId = turno.Id, ServicioId = servicio });
         _auditoria.RegistrarTurno(turno, perro.TutorId, usuarioId, esVeterinario,
             presencial ? AuditoriaAccion.ReservaPresencial : AuditoriaAccion.TurnoSolicitado);
@@ -87,7 +106,12 @@ public class TurnoService
         if (turno.PerroId != dto.PerroId || turno.CupoDiarioId != dto.CupoDiarioId || turno.VeterinarioId != dto.VeterinarioId)
             throw new InvalidOperationException("Para cambiar perro, fecha o veterinario, cancelá el turno y generá otro.");
         if (dto.TratamientoId is not null && dto.TratamientoId != CatalogosFormularioService.Otro && !await _context.Tratamientos.AnyAsync(x => x.Id == dto.TratamientoId)) throw new InvalidOperationException("Seleccioná un tratamiento válido.");
-        turno.Observaciones = dto.Observaciones?.Trim(); turno.TratamientoId = await _catalogos.TratamientoAsync(dto.TratamientoId, dto.NuevoTratamiento);
+        turno.Observaciones = dto.Observaciones?.Trim();
+        var tratamientoId = await _catalogos.TratamientoAsync(dto.TratamientoId, dto.NuevoTratamiento);
+        var previstos = await _context.TratamientosPorTurno.Where(x => x.TurnoId == turno.Id).ToListAsync();
+        _context.TratamientosPorTurno.RemoveRange(previstos.Where(x => x.TratamientoId != tratamientoId));
+        if (tratamientoId.HasValue && !previstos.Any(x => x.TratamientoId == tratamientoId))
+            _context.TratamientosPorTurno.Add(new TratamientoPorTurno { TurnoId = turno.Id, TratamientoId = tratamientoId.Value });
         var tutorId = await _context.Perros.Where(x => x.Id == turno.PerroId).Select(x => x.TutorId).SingleAsync();
         _auditoria.RegistrarTurno(turno, tutorId, usuarioId, true, AuditoriaAccion.TurnoEditado);
         await _context.SaveChangesAsync(); await transaction.CommitAsync();
@@ -101,7 +125,44 @@ public class TurnoService
         await _context.Turnos.FromSqlInterpolated($"SELECT * FROM \"Turnos\" WHERE \"Id\" = {id} FOR UPDATE").SingleOrDefaultAsync()
         ?? throw new InvalidOperationException("No se encontró un turno disponible.");
 
-    public async Task CambiarEstadoAsync(int id, int destino, string usuarioId, bool esVeterinario, int? cantidad = null)
+    public Task CambiarEstadoAsync(int id, int destino, string usuarioId, bool esVeterinario, int? cantidad = null) =>
+        CambiarEstadoInternoAsync(id, destino, usuarioId, esVeterinario, cantidad, null);
+
+    public Task CompletarAsync(int id, CompletarTurnoDto atencion, string usuarioId) =>
+        CambiarEstadoInternoAsync(id, EstadosTurno.Completado, usuarioId, true, null, atencion);
+
+    private async Task RegistrarAtencionAsync(Turno turno, CompletarTurnoDto datos)
+    {
+        if (datos.ServicioIdsCompletados is null || datos.Tratamientos is null || datos.Tratamientos.Any(x => x is null))
+            throw new InvalidOperationException("Indicá servicios y tratamientos válidos.");
+        if (datos.Observaciones?.Length > 2000 || datos.Tratamientos.Any(x => x.Razon?.Length > 1000))
+            throw new InvalidOperationException("Revisá la longitud de las observaciones y de los motivos de tratamientos.");
+        var servicios = await _context.ServiciosPorTurno.Where(x => x.TurnoId == turno.Id).ToListAsync();
+        if (servicios.Count == 0) throw new InvalidOperationException("El turno debe tener al menos un servicio registrado.");
+        var realizados = datos.ServicioIdsCompletados.ToHashSet();
+        if (realizados.Count != datos.ServicioIdsCompletados.Count || !realizados.IsSubsetOf(servicios.Select(x => x.ServicioId)))
+            throw new InvalidOperationException("Indicá servicios distintos que pertenezcan al turno.");
+        var ids = datos.Tratamientos.Select(x => x.TratamientoId).ToList();
+        if (ids.Count != ids.Distinct().Count() || await _context.Tratamientos.CountAsync(x => ids.Contains(x.Id)) != ids.Count)
+            throw new InvalidOperationException("Los tratamientos indicados deben existir y ser distintos.");
+        var actuales = await _context.TratamientosPorTurno.Where(x => x.TurnoId == turno.Id).ToListAsync();
+        _context.TratamientosPorTurno.RemoveRange(actuales.Where(x => !ids.Contains(x.TratamientoId)));
+        foreach (var dato in datos.Tratamientos)
+        {
+            var tratamiento = actuales.SingleOrDefault(x => x.TratamientoId == dato.TratamientoId);
+            if (tratamiento is null)
+            {
+                tratamiento = new TratamientoPorTurno { TurnoId = turno.Id, TratamientoId = dato.TratamientoId };
+                _context.TratamientosPorTurno.Add(tratamiento);
+            }
+            tratamiento.Razon = string.IsNullOrWhiteSpace(dato.Razon) ? null : dato.Razon.Trim();
+        }
+        foreach (var servicio in servicios) servicio.Completado = realizados.Contains(servicio.ServicioId);
+        turno.Observaciones = string.IsNullOrWhiteSpace(datos.Observaciones) ? null : datos.Observaciones.Trim();
+    }
+
+    private async Task CambiarEstadoInternoAsync(int id, int destino, string usuarioId, bool esVeterinario,
+        int? cantidad, CompletarTurnoDto? atencion)
     {
         await using var transaction = await _context.Database.BeginTransactionAsync();
         // Leer solo la pertenencia antes de bloquear: todas las operaciones que afectan
@@ -121,6 +182,13 @@ public class TurnoService
                 || turno.EstadoId == EstadosTurno.Confirmado && (destino == EstadosTurno.Completado || destino == EstadosTurno.CanceladoVeterinario)
             : EstadosTurno.Activo(turno.EstadoId);
         if (!permitido) throw new InvalidOperationException("El turno ya cambió de estado o la transición no está permitida.");
+        if (destino == EstadosTurno.Completado)
+        {
+            var fecha = await _context.CuposDiarios.Where(x => x.Id == turno.CupoDiarioId).Select(x => x.FechaCupo).SingleAsync();
+            if (fecha > Reloj.Hoy) throw new InvalidOperationException("No se puede completar el turno antes de su fecha.");
+            if (atencion is null) throw new InvalidOperationException("Registrá la atención antes de completar el turno.");
+            await RegistrarAtencionAsync(turno, atencion);
+        }
         if (cantidad is not null && (destino != EstadosTurno.Confirmado || cantidad < 1))
             throw new InvalidOperationException("La cantidad de plazas debe ser mayor que cero y solo se ajusta al confirmar.");
         var liberaReserva = destino is EstadosTurno.Rechazado or EstadosTurno.CanceladoTutor or EstadosTurno.CanceladoVeterinario;

@@ -48,6 +48,7 @@ try
     await using (var scope = provider.CreateAsyncScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await MigracionAtencionPruebas.EjecutarAsync(db);
         await db.Database.MigrateAsync();
         Verificar(!(await db.Database.GetPendingMigrationsAsync()).Any(), "Quedaron migraciones pendientes.");
         var sinAuditoria = await new InformesService(db).ConsultarAsync(TipoInforme.FrecuenciaSolicitudes,
@@ -396,7 +397,7 @@ try
     {
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var tratamiento = await db.Tratamientos.SingleAsync(x=>x.Descripcion == "Tratamiento desde turno");
-        Verificar((await db.Turnos.SingleAsync(x=>x.Id == activo.Id)).TratamientoId == tratamiento.Id, "No se asignó el tratamiento nuevo.");
+        Verificar(await db.TratamientosPorTurno.AnyAsync(x => x.TurnoId == activo.Id && x.TratamientoId == tratamiento.Id), "No se asignó el tratamiento previsto.");
         Verificar(await db.Tratamientos.CountAsync(x=>x.Descripcion.ToLower() == "tratamiento desde turno") == 1
             && !await db.Tratamientos.AnyAsync(x=>x.Descripcion.StartsWith("No crear")), "El tratamiento se duplicó o quedó huérfano.");
     }
@@ -409,7 +410,12 @@ try
     using(var detalles = await vet.GetAsync("/ServiciosPorTurno/Listado?turnoId=" + activo.Id)) Verificar(detalles.IsSuccessStatusCode, "Falló listado de servicios por turno.");
     await Exito("/ServiciosPorTurno/Guardar", new() { ["EsEdicion"] = "true", ["TurnoId"] = activo.Id.ToString(), ["ServicioId"] = servicioId.ToString(), ["Completado"] = "true" });
     await Exito("/Turnos/Confirmar?id=" + activo.Id, new());
-    await Exito("/Turnos/Completar?id=" + activo.Id, new());
+    // La atención solo se puede cerrar desde la fecha del turno (base temporal).
+    await using (var scope = provider.CreateAsyncScope())
+        await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().CuposDiarios.Where(x => x.Id == activo.CupoDiarioId)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.FechaCupo, Reloj.Hoy));
+    await Exito("/Turnos/Completar?id=" + activo.Id, new()
+        { ["ServicioIdsCompletados"] = servicioId.ToString(), ["Observaciones"] = "Observación de cierre" });
     using(var modificarFinalizado = await Enviar("/ServiciosPorTurno/Guardar", new() { ["EsEdicion"] = "true", ["TurnoId"] = activo.Id.ToString(), ["ServicioId"] = servicioId.ToString(), ["Completado"] = "false" }))
         Verificar(modificarFinalizado.StatusCode == HttpStatusCode.BadRequest, "Se modificó un turno finalizado.");
     var perroAjeno = await tutorCliente.GetAsync("/Turnos/Historial?perroId=" + otroPerroId);
@@ -717,6 +723,9 @@ try
         await Token(demoTutor, "/Turnos/SolicitarPersonal"),
         await Token(demoVet, "/Vetos/ObtenerFormulario?tutorId=" + tutorVetoId));
     await InformesPruebas.EjecutarAsync(provider, password, administrador, demoTutor, demoVet, anon, tresRoles);
+    await AtencionPruebas.EjecutarAsync(provider, demoVet, demoDualVet, demoTutor, tutorCliente, administrador, anon, lunaDemo,
+        await Token(demoVet, "/Turnos/ObtenerFormulario"), await Token(demoDualVet, "/Turnos/ObtenerFormulario"),
+        await Token(demoTutor, "/Turnos/SolicitarPersonal"));
 }
 finally
 {

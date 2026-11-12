@@ -21,7 +21,7 @@ public class TurnosController : Controller
     {
         return _turnos.ConsultarVisibles(_usuarios.GetUserId(User)!, !personal && User.IsInRole("Veterinario"))
             .Include(x => x.Perro).ThenInclude(x => x.Tutor)
-            .Include(x => x.CupoDiario).Include(x => x.Estado).Include(x => x.Veterinario).ThenInclude(x => x!.Usuario).Include(x => x.Tratamiento).AsQueryable();
+            .Include(x => x.CupoDiario).Include(x => x.Estado).Include(x => x.Veterinario).ThenInclude(x => x!.Usuario).Include(x => x.Tratamientos).ThenInclude(x => x.Tratamiento).AsQueryable();
     }
     public async Task<IActionResult> Listado()
     {
@@ -66,7 +66,7 @@ public class TurnosController : Controller
             var x = await _context.Turnos.SingleOrDefaultAsync(x => x.Id == id);
             if (x is null) return NotFound();
             if (!await _turnos.PuedeAtenderAsync(x, _usuarios.GetUserId(User)!)) return Forbid();
-            dto = new TurnoDto { Id = x.Id, PerroId = x.PerroId, VeterinarioId = x.VeterinarioId, CupoDiarioId = x.CupoDiarioId, TratamientoId = x.TratamientoId, Observaciones = x.Observaciones };
+            dto = new TurnoDto { Id = x.Id, PerroId = x.PerroId, VeterinarioId = x.VeterinarioId, CupoDiarioId = x.CupoDiarioId, TratamientoId = await _context.TratamientosPorTurno.Where(t => t.TurnoId == x.Id).Select(t => (int?)t.TratamientoId).FirstOrDefaultAsync(), Observaciones = x.Observaciones };
         }
         await Preparar(dto); return PartialView("_Formulario", dto);
     }
@@ -149,8 +149,37 @@ public class TurnosController : Controller
     }
     [HttpPost, Authorize(Roles = "Veterinario")]
     public async Task<IActionResult> Rechazar(int id) { await _turnos.CambiarEstadoAsync(id, EstadosTurno.Rechazado, _usuarios.GetUserId(User)!, true); return Json(new { success = true }); }
+    [HttpGet, Authorize(Roles = "Veterinario")]
+    public async Task<IActionResult> ObtenerAtencion(int id)
+    {
+        var turno = await PrepararAtencion(id);
+        var dto = new CompletarTurnoDto { Id = id, Observaciones = turno.Observaciones,
+            ServicioIdsCompletados = await _context.ServiciosPorTurno.Where(x => x.TurnoId == id && x.Completado).Select(x => x.ServicioId).ToListAsync(),
+            Tratamientos = await _context.TratamientosPorTurno.Where(x => x.TurnoId == id)
+                .Select(x => new TratamientoAtencionDto { TratamientoId = x.TratamientoId, Razon = x.Razon }).ToListAsync() };
+        return PartialView("_Atencion", dto);
+    }
+
+    private async Task<Turno> PrepararAtencion(int id)
+    {
+        var turno = await _context.Turnos.SingleOrDefaultAsync(x => x.Id == id)
+            ?? throw new InvalidOperationException("No se encontró el turno.");
+        if (!await _turnos.PuedeAtenderAsync(turno, _usuarios.GetUserId(User)!)) throw new UnauthorizedAccessException();
+        if (turno.EstadoId != EstadosTurno.Confirmado) throw new InvalidOperationException("Solo se registra la atención de turnos confirmados.");
+        var fecha = await _context.CuposDiarios.Where(x => x.Id == turno.CupoDiarioId).Select(x => x.FechaCupo).SingleAsync();
+        if (fecha > Reloj.Hoy) throw new InvalidOperationException("No se puede completar el turno antes de su fecha.");
+        ViewBag.ServiciosAtencion = await _context.ServiciosPorTurno.Where(x => x.TurnoId == id).Select(x => x.Servicio).OrderBy(x => x.Descripcion).ToListAsync();
+        ViewBag.TratamientosAtencion = await _context.Tratamientos.OrderBy(x => x.Descripcion).ToListAsync();
+        return turno;
+    }
+
     [HttpPost, Authorize(Roles = "Veterinario")]
-    public async Task<IActionResult> Completar(int id) { await _turnos.CambiarEstadoAsync(id, EstadosTurno.Completado, _usuarios.GetUserId(User)!, true); return Json(new { success = true }); }
+    public async Task<IActionResult> Completar(CompletarTurnoDto dto)
+    {
+        if (!ModelState.IsValid) { await PrepararAtencion(dto.Id); return PartialView("_Atencion", dto); }
+        await _turnos.CompletarAsync(dto.Id, dto, _usuarios.GetUserId(User)!);
+        return Json(new { success = true });
+    }
     [HttpPost]
     public async Task<IActionResult> Cancelar(int id)
     {

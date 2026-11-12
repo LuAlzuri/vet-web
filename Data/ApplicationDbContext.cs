@@ -24,6 +24,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<Estado> Estados { get; set; }
 
+    public DbSet<TratamientoPorTurno> TratamientosPorTurno => Set<TratamientoPorTurno>();
     public DbSet<Tratamiento> Tratamientos { get; set; }
 
     public DbSet<Servicio> Servicios { get; set; }
@@ -172,10 +173,20 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .HasForeignKey(turno => turno.CupoDiarioId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(turno => turno.Estado).WithMany()
                 .HasForeignKey(turno => turno.EstadoId).OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne(turno => turno.Tratamiento).WithMany()
-                .HasForeignKey(turno => turno.TratamientoId).OnDelete(DeleteBehavior.Restrict);
             entity.HasQueryFilter(turno => !turno.Perro.Eliminado
                 && !turno.Perro.Tutor.Eliminado && (turno.VeterinarioId == null || !turno.Veterinario!.Eliminado));
+        });
+
+        builder.Entity<TratamientoPorTurno>(entity =>
+        {
+            entity.ToTable("TratamientosPorTurno");
+            entity.HasKey(x => new { x.TurnoId, x.TratamientoId });
+            entity.HasOne(x => x.Turno).WithMany(x => x.Tratamientos)
+                .HasForeignKey(x => x.TurnoId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Tratamiento).WithMany()
+                .HasForeignKey(x => x.TratamientoId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(x => !x.Turno.Perro.Eliminado && !x.Turno.Perro.Tutor.Eliminado
+                && (x.Turno.VeterinarioId == null || !x.Turno.Veterinario!.Eliminado));
         });
 
         builder.Entity<ServicioPorTurno>(entity =>
