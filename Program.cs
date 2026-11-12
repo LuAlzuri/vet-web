@@ -16,6 +16,10 @@ builder.Services.AddControllersWithViews(options =>
     options.ModelBindingMessageProvider.SetValueMustNotBeNullAccessor(valor => "Este campo es obligatorio.");
 });
 builder.Services.AddRazorPages();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<VetWeb.Services.Chatbot.ChatbotReservasPendientes>();
+builder.Services.AddScoped<VetWeb.Services.Chatbot.ChatbotAccionesService>();
+builder.Services.AddScoped<VetWeb.Services.Chatbot.ChatbotAdministradorService>();
 builder.Services.AddScoped<VetWeb.Services.Chatbot.IChatbotProveedor, VetWeb.Services.Chatbot.ChatbotSinConexion>();
 builder.Services.AddScoped<VetWeb.Services.CuentaService>();
 builder.Services.AddScoped<VetWeb.Services.PerroService>();

@@ -4,7 +4,7 @@
     if (!root) return;
     const open = root.querySelector(".chatbot-abrir");
     const panel = root.querySelector(".chatbot-panel");
-    const form = root.querySelector("form");
+    const form = root.querySelector(".chatbot-formulario");
     const input = root.querySelector("textarea");
     const log = root.querySelector(".chatbot-mensajes");
     const status = root.querySelector(".chatbot-estado");

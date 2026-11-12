@@ -322,4 +322,4 @@ AgregarFotoPerro fue aplicada en la base local y agrega una columna opcional sin
 
 ### Asistente de chat
 
-La estructura del chatbot está disponible para los tres roles mediante una ventana flotante. Por ahora informa que Gemini aún no está conectado; no realiza llamadas externas ni guarda conversaciones. Ver [estructura y guía de conexión a Gemini](docs/CHATBOT.md).
+El asistente flotante permite a Tutor consultar cupos, sus turnos y registros clínicos, y solicitar turnos con confirmación. Veterinario puede consultar cancelaciones y vetos de un tutor y agendar para sus perros. Administrador dispone de consultas exclusivas de servicios solicitados, completados/cancelados, comparación mensual y auditoría. Estas acciones guiadas funcionan sin IA; la interpretación por texto todavía no está conectada a Gemini. Ver [acciones, permisos y guía de conexión a Gemini](docs/CHATBOT.md).

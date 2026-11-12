@@ -1,14 +1,32 @@
 @if (User.IsInRole("Veterinario") || User.IsInRole("Tutor") || User.IsInRole("Administrador"))
 {
-    <div class="chatbot" data-chatbot data-url="@Url.Content("~/api/chatbot/mensajes")">
+    <div class="chatbot" data-chatbot data-url="@Url.Content("~/api/chatbot/mensajes")" data-acciones-url="@Url.Content("~/api/chatbot/acciones")" data-herramientas="true">
         <button type="button" class="btn btn-primary chatbot-abrir" aria-expanded="false" aria-controls="chatbot-panel">Asistente VeteWeb</button>
         <section id="chatbot-panel" class="chatbot-panel" aria-labelledby="chatbot-titulo" hidden>
             <header class="chatbot-cabecera">
                 <h2 id="chatbot-titulo">Asistente VeteWeb</h2>
                 <button type="button" class="btn btn-sm btn-light" data-chatbot-cerrar aria-label="Cerrar asistente">Cerrar</button>
             </header>
-            <p class="chatbot-aviso">En preparación · Gemini aún no está conectado.</p>
+            @if (User.IsInRole("Tutor") || User.IsInRole("Veterinario"))
+            {
+                <p class="chatbot-aviso">Usá las acciones para consultar y solicitar turnos. Las consultas por texto aún no están conectadas a Gemini.</p>
+            }
+            else
+            {
+                <p class="chatbot-aviso">Consultá informes y auditoría con las acciones disponibles. Las consultas por texto aún no están conectadas a Gemini.</p>
+            }
             <div class="chatbot-mensajes" role="log" aria-label="Conversación" aria-live="polite" aria-relevant="additions"></div>
+            <div class="chatbot-herramientas" hidden>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-chatbot-inicio>Acciones disponibles</button>
+                <div class="chatbot-resultado" aria-live="polite"></div>
+                <form class="chatbot-busqueda" hidden>
+                    <label for="chatbot-tutor">Buscar tutor por nombre o apellido</label>
+                    <div class="chatbot-acciones">
+                        <input id="chatbot-tutor" class="form-control" maxlength="100" />
+                        <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
+                    </div>
+                </form>
+            </div>
             <p class="chatbot-estado" role="status"></p>
             <form class="chatbot-formulario">
                 @Html.AntiForgeryToken()

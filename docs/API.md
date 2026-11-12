@@ -64,3 +64,7 @@ Las operaciones administrativas sobre un recurso de otro profesional pueden devo
 `Tests/Integracion/ApiCoberturaPruebas.cs` comprueba los nuevos CRUDs con clientes HTTP autenticados, roles activos, seguimiento de Location, validaciones, pertenencia de perros y asociaciones, bajas lógicas, historial, catálogos referenciados, cupos con turnos, servicios realizados, recursos finalizados y antifalsificación. La suite completa también verifica las reglas de reservas, concurrencia, fotos, atención, vetos y reportes. Todas las pruebas usan PostgreSQL temporal creado desde cero y eliminado al terminar.
 
 No se agregan entidades ni migraciones para este hito. La extracción de servicios conserva los formularios y reglas de la web.
+
+## Acciones del chatbot
+
+`POST /api/chatbot/acciones` requiere sesión con rol activo Tutor, Veterinario o Administrador y antifalsificación. Permite consultas paginadas y reservas con preparación y confirmación de un solo uso. El alcance de datos se valida en el servidor, incluyendo la pertenencia del perro. Administrador solo tiene acceso a sus consultas de informes y auditoría; Tutor y Veterinario no pueden ejecutarlas. Ver [contratos, acciones y flujo de confirmación](CHATBOT.md).
