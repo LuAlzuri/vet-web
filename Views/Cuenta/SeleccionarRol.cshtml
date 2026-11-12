@@ -7,7 +7,11 @@
 @foreach (var rol in Model) {
     <div class="col-md-6"><div class="card h-100"><div class="card-body">
     <h2 class="h4">@rol</h2>
-    <p>@(rol == "Veterinario" ? "Administrar tutores, perros, cupos y turnos de la veterinaria." : "Consultar tus perros e historial y solicitar o cancelar tus turnos.")</p>
+    <p>@(rol switch {
+        "Administrador" => "Gestionar las cuentas de los veterinarios.",
+        "Veterinario" => "Administrar tutores, perros, cupos y turnos de la veterinaria.",
+        _ => "Consultar tus perros e historial y solicitar o cancelar tus turnos."
+    })</p>
     <button class="btn btn-primary" type="submit" name="rol" value="@rol">Ingresar como @rol</button>
     </div></div></div>
 }

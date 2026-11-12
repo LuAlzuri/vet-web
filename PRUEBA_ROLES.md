@@ -70,7 +70,7 @@ Los dos turnos de la semilla están asignados a Marina (veterinario.demo@vetweb.
 
 ## Tres tutores adicionales con fotos
 
-Comando exclusivo de Development (requiere los catálogos Adulto y Mediano existentes):
+Comando exclusivo de Development. En una base nueva, ejecutar primero `--semilla-demo` para cargar los catálogos de ejemplo. Si ya existen Adulto y Mediano, se usan esas opciones:
 
 ```powershell
 dotnet run --project VetWeb.csproj --configuration Release --launch-profile http -- --semilla-tutores

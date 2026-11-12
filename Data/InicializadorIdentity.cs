@@ -1,10 +1,45 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using VetWeb.Models;
+using VetWeb.Services;
 
 namespace VetWeb.Data;
 
 public static class InicializadorIdentity
 {
+    public static async Task CrearAdministradorAsync(IServiceProvider services, IConfiguration configuration)
+    {
+        var email = configuration["AdministradorInicial:Email"]?.Trim();
+        var nombre = configuration["AdministradorInicial:Nombre"]?.Trim();
+        var apellido = configuration["AdministradorInicial:Apellido"]?.Trim();
+        var password = configuration["AdministradorInicial:Password"];
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(nombre)
+            || string.IsNullOrWhiteSpace(apellido) || string.IsNullOrWhiteSpace(password))
+            throw new InvalidOperationException("Configurá Email, Nombre, Apellido y Password en AdministradorInicial.");
+        if (nombre.Length > 50 || apellido.Length > 50)
+            throw new InvalidOperationException("Nombre y Apellido no pueden superar los 50 caracteres.");
+
+        var usuarios = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var roles = services.GetRequiredService<RoleManager<IdentityRole>>();
+        var db = services.GetRequiredService<ApplicationDbContext>();
+        await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+        if (!await roles.RoleExistsAsync(RolSesion.Administrador))
+            throw new InvalidOperationException("Aplicá primero la migración AgregarRolAdministrador.");
+        if ((await usuarios.GetUsersInRoleAsync(RolSesion.Administrador)).Count > 0)
+            throw new InvalidOperationException("Ya existe una cuenta administrativa.");
+        if (await usuarios.FindByEmailAsync(email) is not null)
+            throw new InvalidOperationException("Usá un correo nuevo para la primera cuenta administrativa.");
+
+        var usuario = new ApplicationUser { UserName = email, Email = email, Nombre = nombre, Apellido = apellido };
+        var alta = await usuarios.CreateAsync(usuario, password);
+        if (!alta.Succeeded)
+            throw new InvalidOperationException("No se pudo crear la cuenta administrativa. Revisá el correo y la política de contraseñas.");
+        if (!(await usuarios.AddToRoleAsync(usuario, RolSesion.Administrador)).Succeeded)
+            throw new InvalidOperationException("No se pudo asignar el rol Administrador.");
+        await transaction.CommitAsync();
+        Console.WriteLine("Cuenta inicial creada con el rol Administrador.");
+    }
+
     public static async Task CrearVeterinarioAsync(IServiceProvider services, IConfiguration configuration)
     {
         var email = configuration["VeterinarioInicial:Email"]?.Trim();

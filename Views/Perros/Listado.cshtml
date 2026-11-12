@@ -20,7 +20,7 @@
 {
     <div class="col-12 col-sm-6 col-lg-4 col-xl-3 d-flex">
         <section class="card perro-card shadow-sm mx-auto" aria-labelledby="perro-nombre-@perro.Id">
-            @if (perro.FotoArchivo is not null)
+            @if (perro.Imagen is not null)
             {
                 <img src="@Url.Action("Foto", new { id = perro.Id })" class="card-img-top perro-card-foto"
                      alt="Foto de @perro.Nombre" width="320" height="200" loading="lazy" />

@@ -6,8 +6,7 @@ public class Perro
 {
     public int Id { get; set; }
 
-    [StringLength(40)]
-    public string? FotoArchivo { get; set; }
+    public Imagen? Imagen { get; set; }
 
     [Required(ErrorMessage = "El nombre es obligatorio.")]
     [StringLength(100, ErrorMessage = "El nombre no puede superar los 100 caracteres.")]

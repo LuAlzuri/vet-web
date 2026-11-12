@@ -61,6 +61,13 @@ namespace VetWeb.Data.Migrations
                             ConcurrencyStamp = "rol-tutor-v1",
                             Name = "Tutor",
                             NormalizedName = "TUTOR"
+                        },
+                        new
+                        {
+                            Id = "rol-administrador",
+                            ConcurrencyStamp = "rol-administrador-v1",
+                            Name = "Administrador",
+                            NormalizedName = "ADMINISTRADOR"
                         });
                 });
 
@@ -339,6 +346,44 @@ namespace VetWeb.Data.Migrations
                     b.ToTable("GruposEtarios", (string)null);
                 });
 
+            modelBuilder.Entity("VetWeb.Models.Imagen", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("NombreArchivo")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("PerroId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("TamanoBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("TipoContenido")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NombreArchivo")
+                        .IsUnique();
+
+                    b.HasIndex("PerroId")
+                        .IsUnique();
+
+                    b.ToTable("Imagenes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Imagenes_TamanoBytes", "\"TamanoBytes\" > 0");
+                        });
+                });
+
             modelBuilder.Entity("VetWeb.Models.Patologia", b =>
                 {
                     b.Property<int>("Id")
@@ -375,10 +420,6 @@ namespace VetWeb.Data.Migrations
 
                     b.Property<DateTime>("FechaNacimiento")
                         .HasColumnType("date");
-
-                    b.Property<string>("FotoArchivo")
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
 
                     b.Property<int>("GrupoEtarioId")
                         .HasColumnType("integer");
@@ -719,6 +760,17 @@ namespace VetWeb.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("VetWeb.Models.Imagen", b =>
+                {
+                    b.HasOne("VetWeb.Models.Perro", "Perro")
+                        .WithOne("Imagen")
+                        .HasForeignKey("VetWeb.Models.Imagen", "PerroId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Perro");
+                });
+
             modelBuilder.Entity("VetWeb.Models.Perro", b =>
                 {
                     b.HasOne("VetWeb.Models.GrupoEtario", "GrupoEtario")
@@ -883,6 +935,8 @@ namespace VetWeb.Data.Migrations
 
             modelBuilder.Entity("VetWeb.Models.Perro", b =>
                 {
+                    b.Navigation("Imagen");
+
                     b.Navigation("Patologias");
                 });
 
