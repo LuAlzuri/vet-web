@@ -1,0 +1,87 @@
+@using VetWeb.Dtos
+@using VetWeb.Services
+@model InformePaginaDto
+@{ ViewData["Title"] = "Informes para Administración"; }
+<h1 class="h2">Informes para Administración</h1>
+<p>Consultá el período por fechas de solicitud o finalización. Los días y horarios corresponden a Argentina.</p>
+<form asp-action="Listado" method="get" class="row g-3 align-items-end mb-4">
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+    <div class="col-md-5">
+        <label asp-for="Tipo" class="form-label">Informe</label>
+        <select asp-for="Tipo" class="form-select">
+            <option value="FrecuenciaSolicitudes">Frecuencia de solicitudes</option>
+            <option value="ServiciosCompletos">Atenciones con servicios completos</option>
+            <option value="ServiciosIncompletos">Atenciones con servicios incompletos</option>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <label asp-for="Periodo.Desde" class="form-label"></label>
+        <input asp-for="Periodo.Desde" type="date" class="form-control" required />
+    </div>
+    <div class="col-md-2">
+        <label asp-for="Periodo.Hasta" class="form-label"></label>
+        <input asp-for="Periodo.Hasta" type="date" class="form-control" required />
+    </div>
+    <div class="col-md-3"><button class="btn btn-primary" type="submit">Consultar</button></div>
+</form>
+@if (Model.Informe is { } informe)
+{
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+        <div><h2 class="h4">@InformesService.Titulo(informe.Tipo)</h2>
+            <p class="mb-1">@informe.Desde.ToString("dd/MM/yyyy") al @informe.Hasta.ToString("dd/MM/yyyy") · Total: <strong>@informe.Total</strong></p>
+        </div>
+        <a class="btn btn-outline-primary" asp-action="Pdf" asp-route-tipo="@informe.Tipo"
+           asp-route-desde="@informe.Desde.ToString("yyyy-MM-dd")" asp-route-hasta="@informe.Hasta.ToString("yyyy-MM-dd")">Descargar PDF</a>
+    </div>
+    <p>@InformesService.Criterio(informe.Tipo)</p>
+    <div class="alert alert-info">
+        @if (informe.AuditoriaDesdeUtc is DateTime inicio)
+        {
+            <span>Primer evento de auditoría registrado: @Reloj.EnArgentina(inicio).ToString("dd/MM/yyyy HH:mm:ss") (Argentina).</span>
+        }
+        else
+        {
+            <span>Todavía no hay eventos de auditoría registrados.</span>
+        }
+        <span>No se reconstruyen eventos anteriores. Un período sin eventos no demuestra ausencia de actividad antes del registro de auditoría.</span>
+    </div>
+    @if (informe.Total == 0)
+    {
+        <p>No hay datos para el período seleccionado.</p>
+    }
+    else if (informe.Tipo == TipoInforme.FrecuenciaSolicitudes)
+    {
+        <div class="table-responsive"><table class="table table-striped">
+            <caption>Solicitudes registradas por día</caption>
+            <thead><tr><th scope="col">Fecha de solicitud</th><th scope="col">Solicitudes</th></tr></thead>
+            <tbody>@foreach (var fila in informe.Solicitudes)
+            { <tr><td>@fila.Fecha.ToString("dd/MM/yyyy")</td><td>@fila.Cantidad</td></tr> }</tbody>
+        </table></div>
+    }
+    else
+    {
+        <div class="table-responsive"><table class="table table-striped">
+            <caption>Atenciones finalizadas en el período</caption>
+            <thead><tr><th scope="col">Turno</th><th scope="col">Finalización</th><th scope="col">Perro</th><th scope="col">Tutor</th><th scope="col">Servicios realizados</th><th scope="col">Observaciones</th></tr></thead>
+            <tbody>@foreach (var fila in informe.Atenciones)
+            {
+                <tr><td>#@fila.TurnoId</td><td>@Reloj.EnArgentina(fila.FinalizacionUtc).ToString("dd/MM/yyyy HH:mm:ss")</td>
+                    <td>@fila.Perro</td><td>@fila.Tutor</td><td>@fila.Completados de @fila.Servicios</td>
+                    <td>@(string.IsNullOrWhiteSpace(fila.Observaciones) ? "Sin observaciones" : fila.Observaciones)</td></tr>
+            }</tbody>
+        </table></div>
+    }
+    @if (informe.Tipo == TipoInforme.ServiciosIncompletos)
+    {
+        <h3 class="h5">Patologías actuales asociadas</h3>
+        <p>Cada patología se cuenta una vez por atención, aunque haya varios servicios pendientes.</p>
+        @if (informe.Patologias.Count == 0) { <p>No hay patologías asociadas.</p> }
+        else
+        {
+            <div class="table-responsive"><table class="table table-striped">
+                <thead><tr><th scope="col">Patología</th><th scope="col">Atenciones</th></tr></thead>
+                <tbody>@foreach (var fila in informe.Patologias) { <tr><td>@fila.Descripcion</td><td>@fila.Cantidad</td></tr> }</tbody>
+            </table></div>
+        }
+    }
+}

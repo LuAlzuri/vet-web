@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using VetWeb.Data;
 using VetWeb.Models;
 
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews(options =>
@@ -20,6 +22,8 @@ builder.Services.AddScoped<VetWeb.Services.VetoService>();
 builder.Services.AddScoped<VetWeb.Services.AuditoriaService>();
 builder.Services.AddScoped<VetWeb.Services.CatalogosFormularioService>();
 builder.Services.AddScoped<VetWeb.Services.ImagenPerroService>();
+builder.Services.AddScoped<VetWeb.Services.InformesService>();
+builder.Services.AddSingleton<VetWeb.Services.InformesPdfService>();
 
 // La conexión se configura mediante secretos de usuario o variables de entorno.
 // No se abre una conexión ni se aplican migraciones al iniciar la aplicación.
