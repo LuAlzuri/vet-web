@@ -125,6 +125,12 @@ El veto bloquea las solicitudes nuevas. Mientras esté vigente, el veterinario p
 
 La API ofrece `GET` y `POST /api/tutores/{tutorId}/vetos`, `POST /api/tutores/{tutorId}/vetos/{vetoId}/levantar` y `POST /api/turnos/presencial`. Se requiere Veterinario activo. Para aplicar o levantar el veto, enviar JSON con `motivo`. Los POST requieren antifalsificación de la sesión de Identity. Se usa la tabla `Vetos` existente.
 
+## Cobertura de la API
+
+La API permite gestionar perros, su historial y patologías, tutores y teléfonos, veterinarios, catálogos, cupos y servicios por turno. Reutiliza los servicios de la web para las altas, ediciones, bajas y reglas de negocio. Mantiene la cookie de Identity, la antifalsificación y el rol activo; los permisos y la pertenencia se comprueban desde cada endpoint.
+
+Ver el [inventario de endpoints, comparación con el móvil, permisos y contratos JSON](docs/API.md). Se conserva `/api/cupos` y se agrega el alias `/api/cupos-diarios`. Los estados siguen siendo de solo lectura, y los turnos de otro profesional quedan fuera de las consultas privadas. No se agregan entidades ni migraciones. `Tests/Integracion` verifica los nuevos módulos por HTTP junto con los recorridos web existentes, siempre contra PostgreSQL temporal.
+
 ## Registro de la atención
 
 Un Veterinario puede abrir **Registrar atención** desde un turno confirmado de su agenda, a partir de la fecha del cupo (día argentino) o después. El servidor rechaza cierres anticipados aunque se intente llamar directamente a la API. Se conserva la visibilidad de los turnos asignados al profesional y los de **No especifica**.

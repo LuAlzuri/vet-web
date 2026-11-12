@@ -20,8 +20,9 @@ public class CuentaService
             throw new InvalidOperationException("No se pudo guardar la cuenta. Verificá que el correo no esté en uso y que la contraseña tenga 8 caracteres, mayúscula, minúscula, número y símbolo.");
     }
 
-    public async Task GuardarAsync(CuentaDto dto, bool veterinario)
+    public async Task<int> GuardarAsync(CuentaDto dto, bool veterinario)
     {
+        ValidacionDto.Comprobar(dto);
         if (veterinario && dto.Matricula is null) throw new InvalidOperationException("La matrícula es obligatoria.");
         await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         Tutor? tutor = null;
@@ -64,12 +65,13 @@ public class CuentaService
         if (dto.Id == 0)
         {
             Comprobar(await _usuarios.AddToRoleAsync(usuario, veterinario ? "Veterinario" : "Tutor"));
-            if (veterinario) _context.Veterinarios.Add(new Veterinario { UserId = usuario.Id, Matricula = dto.Matricula!.Value });
-            else _context.Tutores.Add(new Tutor { UserId = usuario.Id });
+            if (veterinario) { profesional = new Veterinario { UserId = usuario.Id, Matricula = dto.Matricula!.Value }; _context.Veterinarios.Add(profesional); }
+            else { tutor = new Tutor { UserId = usuario.Id }; _context.Tutores.Add(tutor); }
         }
         else if (veterinario) profesional!.Matricula = dto.Matricula!.Value;
         await _context.SaveChangesAsync();
         await transaction.CommitAsync();
+        return veterinario ? profesional!.Id : tutor!.Id;
     }
 
     public async Task EliminarAsync(int id, bool veterinario, string usuarioActualId)

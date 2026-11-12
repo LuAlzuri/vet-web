@@ -5,12 +5,14 @@ using Microsoft.EntityFrameworkCore;
 using VetWeb.Data;
 using VetWeb.Dtos;
 using VetWeb.Models;
+using VetWeb.Services;
 namespace VetWeb.Controllers;
 [Authorize(Roles = "Veterinario")]
 public class TelefonosTutoresController : Controller
 {
     private readonly ApplicationDbContext _context;
-    public TelefonosTutoresController(ApplicationDbContext context) => _context = context;
+    private readonly TelefonoTutorService _telefonos;
+    public TelefonosTutoresController(ApplicationDbContext context, TelefonoTutorService telefonos) { _context = context; _telefonos = telefonos; }
     public async Task<IActionResult> Listado() => View(await _context.TelefonosTutores.AsNoTracking().Include(x => x.Tutor).ThenInclude(x => x.Usuario).ToListAsync());
     private async Task Preparar() => ViewBag.Tutores = new SelectList(await _context.Tutores.Where(x => x.Usuario.Activo)
         .Select(x => new { x.Id, Nombre = x.Usuario.Apellido + ", " + x.Usuario.Nombre }).ToListAsync(), "Id", "Nombre");
@@ -25,16 +27,13 @@ public class TelefonosTutoresController : Controller
     {
         if (!await _context.Tutores.AnyAsync(x => x.Id == dto.TutorId && x.Usuario.Activo)) ModelState.AddModelError(nameof(dto.TutorId), "Seleccioná un tutor activo.");
         if (!ModelState.IsValid) { await Preparar(); return PartialView("_Formulario", dto); }
-        var telefono = dto.Id == 0 ? new TelefonoTutor() : await _context.TelefonosTutores.FindAsync(dto.Id);
-        if (telefono is null) return NotFound();
-        telefono.TutorId = dto.TutorId; telefono.NombrePropietario = dto.NombrePropietario.Trim(); telefono.Numero = dto.Numero.Trim();
-        if (dto.Id == 0) _context.TelefonosTutores.Add(telefono);
-        await _context.SaveChangesAsync(); return Json(new { success = true });
+        if (await _telefonos.GuardarAsync(dto) is null) return NotFound();
+        return Json(new { success = true });
     }
     [HttpPost]
     public async Task<IActionResult> Eliminar(int id)
     {
-        var telefono = await _context.TelefonosTutores.FindAsync(id); if (telefono is null) return NotFound();
-        _context.TelefonosTutores.Remove(telefono); await _context.SaveChangesAsync(); return Json(new { success = true });
+        if (!await _telefonos.EliminarAsync(id)) return NotFound();
+        return Json(new { success = true });
     }
 }

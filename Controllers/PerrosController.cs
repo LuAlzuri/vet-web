@@ -1,4 +1,3 @@
-using System.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -15,7 +14,8 @@ public class PerrosController : Controller
     private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _usuarios;
     private readonly ImagenPerroService _imagenes;
-    public PerrosController(ApplicationDbContext context, UserManager<ApplicationUser> usuarios, ImagenPerroService imagenes) { _context = context; _usuarios = usuarios; _imagenes = imagenes; }
+    private readonly PerroService _perros;
+    public PerrosController(ApplicationDbContext context, UserManager<ApplicationUser> usuarios, ImagenPerroService imagenes, PerroService perros) { _perros = perros; _context = context; _usuarios = usuarios; _imagenes = imagenes; }
     public Task<IActionResult> Listado() => ListarAsync(false);
 
     [Authorize(Roles = "Tutor")]
@@ -80,35 +80,13 @@ public class PerrosController : Controller
             dto.TieneFoto = dto.Id != 0 && await _context.Perros.AnyAsync(x => x.Id == dto.Id && x.Imagen != null);
             await Preparar(); return PartialView("_Formulario", dto);
         }
-        await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-        var perro = dto.Id == 0 ? new Perro() : await _context.Perros.Include(x => x.Imagen).SingleOrDefaultAsync(x => x.Id == dto.Id);
-        if (perro is null) return NotFound();
-        if (dto.Id != 0 && perro.TutorId != dto.TutorId && await _context.Turnos.IgnoreQueryFilters().AnyAsync(x => x.PerroId == dto.Id))
-            throw new InvalidOperationException("No se puede cambiar el tutor de un perro con historial de turnos.");
-        perro.Nombre = dto.Nombre.Trim(); perro.FechaNacimiento = dto.FechaNacimiento!.Value.Date;
-        perro.TutorId = dto.TutorId;
-        perro.GrupoEtarioId = dto.GrupoEtarioId;
-        perro.TamanioId = dto.TamanioId;
-        perro.Reactivo = dto.Reactivo; perro.CalendarioVacunasCompleto = dto.CalendarioVacunasCompleto;
-        var fotoAnterior = perro.Imagen?.NombreArchivo;
-        string? fotoNueva = null;
-        try
-        {
-            if (foto is not null) fotoNueva = await _imagenes.AsignarAsync(perro, foto);
-            if (dto.Id == 0) _context.Perros.Add(perro);
-            await _context.SaveChangesAsync(); await transaction.CommitAsync();
-        }
-        catch { _imagenes.Eliminar(fotoNueva); throw; }
-        if (fotoNueva is not null) _imagenes.Eliminar(fotoAnterior);
+        if (await _perros.GuardarAsync(dto, foto) is null) return NotFound();
         return Json(new { success = true });
     }
     [HttpPost, Authorize(Roles = "Veterinario")]
     public async Task<IActionResult> Eliminar(int id)
     {
-        await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-        var perro = await _context.Perros.FindAsync(id); if (perro is null) return NotFound();
-        if (await _context.Turnos.AnyAsync(x => x.PerroId == id && (x.EstadoId == EstadosTurno.Solicitado || x.EstadoId == EstadosTurno.Confirmado)))
-            throw new InvalidOperationException("Cancelá o completá los turnos pendientes antes de dar de baja al perro.");
-        perro.Eliminado = true; await _context.SaveChangesAsync(); await transaction.CommitAsync(); return Json(new { success = true });
+        if (!await _perros.EliminarAsync(id)) return NotFound();
+        return Json(new { success = true });
     }
 }

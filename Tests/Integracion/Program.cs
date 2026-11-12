@@ -726,6 +726,9 @@ try
     await AtencionPruebas.EjecutarAsync(provider, demoVet, demoDualVet, demoTutor, tutorCliente, administrador, anon, lunaDemo,
         await Token(demoVet, "/Turnos/ObtenerFormulario"), await Token(demoDualVet, "/Turnos/ObtenerFormulario"),
         await Token(demoTutor, "/Turnos/SolicitarPersonal"));
+    await ApiCoberturaPruebas.EjecutarAsync(provider,demoVet,demoDualVet,demoTutor,tutorCliente,administrador,anon,tresRoles,lunaDemo,password,
+        await Token(demoVet,"/Turnos/ObtenerFormulario"),await Token(demoTutor,"/Turnos/SolicitarPersonal"),tokenAdmin,
+        await Token(demoDualVet,"/Turnos/ObtenerFormulario"));
 }
 finally
 {

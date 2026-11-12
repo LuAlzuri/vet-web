@@ -14,10 +14,10 @@ namespace VetWeb.Controllers;
 public class PerrosPatologiasController : Controller
 {
     private readonly ApplicationDbContext _context;
-    private readonly CatalogosFormularioService _catalogos;
+    private readonly PerroPatologiaService _patologias;
     private readonly IDataProtector _protector;
-    public PerrosPatologiasController(ApplicationDbContext context, CatalogosFormularioService catalogos, IDataProtectionProvider protection)
-    { _context = context; _catalogos = catalogos; _protector = protection.CreateProtector("VetWeb.Patologias.Perro"); }
+    public PerrosPatologiasController(ApplicationDbContext context, PerroPatologiaService patologias, IDataProtectionProvider protection)
+    { _context = context; _patologias = patologias; _protector = protection.CreateProtector("VetWeb.Patologias.Perro"); }
 
     private string Contexto(int perroId) => $"{User.FindFirstValue(ClaimTypes.NameIdentifier)}:{perroId}";
     private bool ContextoValido(PerroPatologiaDto dto)
@@ -64,24 +64,13 @@ public class PerrosPatologiasController : Controller
         if (dto.EsEdicion && dto.PatologiaId == CatalogosFormularioService.Otro)
             ModelState.AddModelError(nameof(dto.PatologiaId), "Para cambiar de patología, agregá una asociación nueva.");
         if (!ModelState.IsValid) { await Preparar(dto.PerroId); return PartialView("_Formulario", dto); }
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-        var patologiaId = await _catalogos.PatologiaAsync(dto.PatologiaId, dto.NuevaPatologia);
-        var relacion = await _context.PerrosPatologias.SingleOrDefaultAsync(x => x.PerroId == dto.PerroId && x.PatologiaId == patologiaId);
-        if (!dto.EsEdicion && relacion is not null)
-        {
-            ModelState.AddModelError(string.Empty, "El perro ya tiene esa patología.");
-            await Preparar(dto.PerroId); return PartialView("_Formulario", dto);
-        }
-        if (dto.EsEdicion && relacion is null) return NotFound();
-        if (relacion is null) { relacion = new PerroPatologia { PerroId = dto.PerroId, PatologiaId = patologiaId }; _context.PerrosPatologias.Add(relacion); }
-        relacion.Controlado = dto.Controlado; relacion.Observacion = dto.Observacion?.Trim();
-        await _context.SaveChangesAsync(); await transaction.CommitAsync(); return Json(new { success = true });
+        if (await _patologias.GuardarAsync(dto) is null) return NotFound();
+        return Json(new { success = true });
     }
     [HttpPost]
     public async Task<IActionResult> Eliminar(int perroId, int patologiaId)
     {
-        var relacion = await _context.PerrosPatologias.SingleOrDefaultAsync(x => x.PerroId == perroId && x.PatologiaId == patologiaId);
-        if (relacion is null) return NotFound();
-        _context.PerrosPatologias.Remove(relacion); await _context.SaveChangesAsync(); return Json(new { success = true });
+        if (!await _patologias.EliminarAsync(perroId, patologiaId)) return NotFound();
+        return Json(new { success = true });
     }
 }

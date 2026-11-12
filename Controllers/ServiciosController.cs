@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using VetWeb.Data;
 using VetWeb.Dtos;
 using VetWeb.Models;
+using VetWeb.Services;
 
 namespace VetWeb.Controllers;
 
@@ -11,7 +12,8 @@ namespace VetWeb.Controllers;
 public class ServiciosController : Controller
 {
     private readonly ApplicationDbContext _context;
-    public ServiciosController(ApplicationDbContext context) => _context = context;
+    private readonly CatalogoService<Servicio> _catalogo;
+    public ServiciosController(ApplicationDbContext context, CatalogoService<Servicio> catalogo) { _context = context; _catalogo = catalogo; }
     private void Preparar() { ViewBag.Titulo = "Servicios"; ViewBag.Controlador = "Servicios"; }
 
     public async Task<IActionResult> Listado()
@@ -40,21 +42,14 @@ public class ServiciosController : Controller
         if (await _context.Servicios.AnyAsync(x => x.Id != dto.Id && x.Descripcion.ToLower() == dto.Descripcion.Trim().ToLower()))
             ModelState.AddModelError(nameof(dto.Descripcion), "Ya existe esa descripción.");
         if (!ModelState.IsValid) return PartialView("~/Views/Shared/_FormularioCatalogo.cshtml", dto);
-        var entidad = dto.Id == 0 ? new Servicio() : await _context.Servicios.FindAsync(dto.Id);
-        if (entidad is null) return NotFound();
-        entidad.Descripcion = dto.Descripcion.Trim();
-        if (dto.Id == 0) _context.Servicios.Add(entidad);
-        await _context.SaveChangesAsync();
+        if (await _catalogo.GuardarAsync(dto) is null) return NotFound();
         return Json(new { success = true });
     }
 
     [HttpPost]
     public async Task<IActionResult> Eliminar(int id)
     {
-        var entidad = await _context.Servicios.FindAsync(id);
-        if (entidad is null) return NotFound();
-        _context.Servicios.Remove(entidad);
-        await _context.SaveChangesAsync();
+        if (!await _catalogo.EliminarAsync(id)) return NotFound();
         return Json(new { success = true });
     }
 }
