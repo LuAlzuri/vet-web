@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Identity;
@@ -509,10 +510,13 @@ try
         db.CuposDiarios.Add(nuevoCupo); await db.SaveChangesAsync(); cupoCompartido = nuevoCupo.Id;
     }
     var tokenSolicitudCompartida = await Token(demoDual, "/Turnos/SolicitarPersonal");
-    var solicitudSinVeterinario = await demoDual.PostAsync("/Turnos/GuardarPersonal", new FormUrlEncodedContent(new Dictionary<string,string> {
-        ["__RequestVerificationToken"] = tokenSolicitudCompartida, ["PerroId"] = miloDemo.ToString(), ["VeterinarioId"] = "",
-        ["CupoDiarioId"] = cupoCompartido.ToString(), ["ServicioIds"] = servicioDemo.ToString() }));
-    Verificar(solicitudSinVeterinario.IsSuccessStatusCode && (await solicitudSinVeterinario.Content.ReadAsStringAsync()).Contains("true"), "No se pudo solicitar con No especifica.");
+    using var solicitudApi = new HttpRequestMessage(HttpMethod.Post, "/api/turnos")
+    {
+        Content = JsonContent.Create(new TurnoDto { PerroId = miloDemo, CupoDiarioId = cupoCompartido, ServicioIds = new() { servicioDemo } })
+    };
+    solicitudApi.Headers.Add("RequestVerificationToken", tokenSolicitudCompartida);
+    using var solicitudSinVeterinario = await demoDual.SendAsync(solicitudApi);
+    Verificar(solicitudSinVeterinario.StatusCode == HttpStatusCode.Created, "La API no pudo solicitar con No especifica.");
     int turnoCompartido;
     await using(var scope = provider.CreateAsyncScope())
     {
@@ -528,8 +532,39 @@ try
         using var verServiciosCompartidos = await profesionalCliente.GetAsync("/ServiciosPorTurno/Listado?turnoId=" + turnoCompartido);
         Verificar(editarCompartido.IsSuccessStatusCode && verServiciosCompartidos.IsSuccessStatusCode, "Se ocultó un turno sin profesional especificado.");
     }
-    var confirmarCompartido = await demoDualVet.PostAsync("/Turnos/Confirmar?id=" + turnoCompartido, new FormUrlEncodedContent(new Dictionary<string,string> { ["__RequestVerificationToken"] = tokenAgendaAlex }));
-    Verificar(confirmarCompartido.IsSuccessStatusCode, "Un veterinario no pudo atender un turno compartido.");
+    var formularioConfirmacion = await (await demoDualVet.GetAsync("/Turnos/ObtenerConfirmacion?id=" + turnoCompartido)).Content.ReadAsStringAsync();
+    Verificar(formularioConfirmacion.Contains("Plazas a reservar") && formularioConfirmacion.Contains("action=\"/Turnos/Confirmar\""),
+        "No se mostró el formulario web de confirmación.");
+    Verificar((await demoDualVet.GetAsync("/api/turnos/" + turnoLuna)).StatusCode == HttpStatusCode.NotFound,
+        "La API expuso un turno asignado a otro profesional.");
+    async Task<HttpResponseMessage> ConfirmarCompartido(int cantidad)
+    {
+        using var solicitud = new HttpRequestMessage(HttpMethod.Post, $"/api/turnos/{turnoCompartido}/confirmar")
+        {
+            Content = JsonContent.Create(new { cantidad })
+        };
+        solicitud.Headers.Add("RequestVerificationToken", tokenAgendaAlex);
+        return await demoDualVet.SendAsync(solicitud);
+    }
+    using var exceso = await ConfirmarCompartido(3);
+    Verificar(exceso.StatusCode == HttpStatusCode.BadRequest, "La confirmación excedió la capacidad disponible.");
+    using var confirmarCompartido = await ConfirmarCompartido(2);
+    Verificar(confirmarCompartido.StatusCode == HttpStatusCode.NoContent, "No se pudo confirmar la reserva de dos plazas.");
+    var confirmadoApi = await demoDualVet.GetFromJsonAsync<TurnoRespuestaDto>("/api/turnos/" + turnoCompartido);
+    Verificar(confirmadoApi?.CantidadReservada == 2 && confirmadoApi.EstadoId == EstadosTurno.Confirmado, "La API no muestra la cantidad confirmada.");
+    var cuposApi = await demoDualVet.GetFromJsonAsync<List<CupoDiarioDto>>("/api/cupos");
+    Verificar(cuposApi!.Single(x => x.Id == cupoCompartido).NumeroCuposDisponibles == 0, "La confirmación no consumió la plaza adicional.");
+    async Task<HttpStatusCode> CancelarCompartido()
+    {
+        using var solicitud = new HttpRequestMessage(HttpMethod.Post, $"/api/turnos/{turnoCompartido}/cancelar");
+        solicitud.Headers.Add("RequestVerificationToken", tokenSolicitudCompartida);
+        using var respuesta = await demoDual.SendAsync(solicitud);
+        return respuesta.StatusCode;
+    }
+    Verificar(await CancelarCompartido() == HttpStatusCode.NoContent && await CancelarCompartido() == HttpStatusCode.BadRequest,
+        "El turno no se canceló o se permitió devolver plazas dos veces.");
+    cuposApi = await demoDual.GetFromJsonAsync<List<CupoDiarioDto>>("/api/cupos");
+    Verificar(cuposApi!.Single(x => x.Id == cupoCompartido).NumeroCuposDisponibles == 2, "No se devolvieron ambas plazas.");
     Console.WriteLine("Agenda profesional: turnos asignados privados, URLs y operaciones ajenas bloqueadas, No especifica visible y operativo para todos.");
     var inicioVet = await (await demoVet.GetAsync("/")).Content.ReadAsStringAsync();
     var inicioTutor = await (await demoTutor.GetAsync("/")).Content.ReadAsStringAsync();

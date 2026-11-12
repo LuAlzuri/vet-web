@@ -160,7 +160,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<Turno>(entity =>
         {
-            entity.ToTable("Turnos");
+            entity.ToTable("Turnos", table =>
+                table.HasCheckConstraint("CK_Turnos_CantidadReservada", "\"CantidadReservada\" >= 1"));
+            entity.Property(turno => turno.CantidadReservada).HasDefaultValue(1);
             entity.HasOne(turno => turno.Veterinario).WithMany()
                 .HasForeignKey(turno => turno.VeterinarioId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(turno => turno.Perro).WithMany()

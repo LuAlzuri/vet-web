@@ -5,6 +5,7 @@ namespace VetWeb.Models;
 public class Turno
 {
     public int Id { get; set; }
+    public int CantidadReservada { get; set; } = 1;
 
     [StringLength(2000, ErrorMessage = "Las observaciones no pueden superar los 2000 caracteres.")]
     [Display(Name = "Observaciones")]

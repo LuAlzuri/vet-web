@@ -1,0 +1,18 @@
+@model VetWeb.Dtos.ConfirmarTurnoDto
+<div class="modal-header">
+    <h2 class="modal-title fs-5">Confirmar turno</h2>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+</div>
+<form asp-action="Confirmar" method="post" data-crud>
+    <div class="modal-body">
+        <input asp-for="Id" type="hidden" />
+        <label asp-for="Cantidad" class="form-label"></label>
+        <input asp-for="Cantidad" type="number" min="1" required class="form-control" />
+        <span asp-validation-for="Cantidad" class="text-danger"></span>
+        <p class="form-text">La solicitud ya reserva una plaza. Podés ajustar la cantidad según la disponibilidad del día.</p>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Confirmar turno</button>
+    </div>
+</form>

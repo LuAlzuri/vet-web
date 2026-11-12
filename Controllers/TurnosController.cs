@@ -18,11 +18,9 @@ public class TurnosController : Controller
     { _context = context; _usuarios = usuarios; _turnos = turnos; }
     private IQueryable<Turno> Consultar(bool personal = false)
     {
-        var query = _context.Turnos.IgnoreQueryFilters().AsNoTracking().Include(x => x.Perro).ThenInclude(x => x.Tutor)
+        return _turnos.ConsultarVisibles(_usuarios.GetUserId(User)!, !personal && User.IsInRole("Veterinario"))
+            .Include(x => x.Perro).ThenInclude(x => x.Tutor)
             .Include(x => x.CupoDiario).Include(x => x.Estado).Include(x => x.Veterinario).ThenInclude(x => x!.Usuario).Include(x => x.Tratamiento).AsQueryable();
-        if (personal || !User.IsInRole("Veterinario")) query = query.Where(x => x.Perro.Tutor.UserId == _usuarios.GetUserId(User));
-        else query = query.Where(x => x.VeterinarioId == null || x.Veterinario!.UserId == _usuarios.GetUserId(User));
-        return query;
     }
     public async Task<IActionResult> Listado()
     {
@@ -102,8 +100,23 @@ public class TurnosController : Controller
         await _turnos.GuardarAsync(dto, _usuarios.GetUserId(User)!, User.IsInRole("Veterinario"));
         return Json(new { success = true });
     }
+    [HttpGet, Authorize(Roles = "Veterinario")]
+    public async Task<IActionResult> ObtenerConfirmacion(int id)
+    {
+        var turno = await _context.Turnos.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id);
+        if (turno is null) return NotFound();
+        if (!await _turnos.PuedeAtenderAsync(turno, _usuarios.GetUserId(User)!)) return Forbid();
+        if (turno.EstadoId != EstadosTurno.Solicitado)
+            throw new InvalidOperationException("Solo se pueden confirmar turnos solicitados.");
+        return PartialView("_Confirmar", new ConfirmarTurnoDto { Id = id, Cantidad = turno.CantidadReservada });
+    }
     [HttpPost, Authorize(Roles = "Veterinario")]
-    public async Task<IActionResult> Confirmar(int id) { await _turnos.CambiarEstadoAsync(id, EstadosTurno.Confirmado, _usuarios.GetUserId(User)!, true); return Json(new { success = true }); }
+    public async Task<IActionResult> Confirmar(ConfirmarTurnoDto dto)
+    {
+        if (!ModelState.IsValid) return PartialView("_Confirmar", dto);
+        await _turnos.CambiarEstadoAsync(dto.Id, EstadosTurno.Confirmado, _usuarios.GetUserId(User)!, true, dto.Cantidad);
+        return Json(new { success = true });
+    }
     [HttpPost, Authorize(Roles = "Veterinario")]
     public async Task<IActionResult> Rechazar(int id) { await _turnos.CambiarEstadoAsync(id, EstadosTurno.Rechazado, _usuarios.GetUserId(User)!, true); return Json(new { success = true }); }
     [HttpPost, Authorize(Roles = "Veterinario")]

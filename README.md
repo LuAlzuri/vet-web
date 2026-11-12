@@ -107,7 +107,11 @@ Los estados con IDs fijos son Solicitado (1), Confirmado (2), Rechazado (3), Com
 
 Una solicitud consume un cupo y debe incluir al menos un servicio. Se verifica pertenencia del perro, actividad de las cuentas, disponibilidad, fecha y ausencia de otro turno activo para el perro en esa misma fecha. Un cachorro menor de 45 días en la fecha del cupo y con vacunas incompletas no puede reservar. Los turnos nuevos quedan solicitados; el veterinario los confirma o rechaza. Un turno confirmado puede completarse. Los turnos activos pueden cancelarse.
 
-Rechazos y cancelaciones devuelven el cupo exactamente una vez. Completar conserva la plaza consumida. Las reservas usan transacciones serializables y bloqueo de la fila del cupo para evitar sobreventa; si una operación concurrente obliga a reintentar, se informa al usuario. El cupo no se interpreta como un horario: es disponibilidad para un día.
+Al confirmar, el veterinario puede ajustar la cantidad de plazas reservadas según la disponibilidad del día. Rechazar o cancelar devuelve toda la cantidad reservada exactamente una vez. Completar conserva las plazas consumidas. La solicitud y la confirmación ajustan la disponibilidad dentro de una transacción con bloqueo de la fila del cupo.
+
+La migración `AgregarCantidadReservada` agrega `Turno.CantidadReservada` con valor inicial 1. Cada turno conserva su relación con un único cupo diario.
+
+La API ofrece `GET /api/cupos`, `GET /api/turnos`, `GET /api/turnos/{id}` y `POST /api/turnos` para solicitar como Tutor. Las transiciones se envían con `POST /api/turnos/{id}/confirmar`, `/rechazar`, `/completar` y `/cancelar`. Para confirmar, enviar JSON con `cantidad`. Los POST requieren la cookie de Identity y el encabezado `RequestVerificationToken` con el token antifalsificación de la sesión. La API y la agenda web consultan los turnos mediante el mismo filtro de visibilidad.
 
 Cada veterinario consulta y administra solo sus turnos y los que tienen No especifica. Esa restricción también se aplica al historial, las URLs de edición y los servicios del turno. Un tutor sigue viendo todos sus propios turnos.
 
