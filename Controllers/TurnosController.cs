@@ -20,13 +20,18 @@ public class TurnosController : Controller
     private IQueryable<Turno> Consultar(bool personal = false)
     {
         return _turnos.ConsultarVisibles(_usuarios.GetUserId(User)!, !personal && User.IsInRole("Veterinario"))
-            .Include(x => x.Perro).ThenInclude(x => x.Tutor)
+            .Include(x => x.Perro).ThenInclude(x => x.Tutor).ThenInclude(x => x.Usuario)
             .Include(x => x.CupoDiario).Include(x => x.Estado).Include(x => x.Veterinario).ThenInclude(x => x!.Usuario).Include(x => x.Tratamientos).ThenInclude(x => x.Tratamiento).AsQueryable();
     }
-    public async Task<IActionResult> Listado()
+    public async Task<IActionResult> Listado(DateOnly? fecha = null)
     {
+        if (!ModelState.IsValid) return BadRequest();
         ViewBag.Personal = !User.IsInRole("Veterinario");
-        return View(await Consultar().OrderByDescending(x => x.CupoDiario.FechaCupo).ToListAsync());
+        var turnos = await Consultar().OrderByDescending(x => x.CupoDiario.FechaCupo).ThenByDescending(x => x.Id).ToListAsync();
+        if (ViewBag.Personal == true) return View(turnos);
+        ViewBag.FechaAgenda = fecha ?? DateOnly.FromDateTime(Reloj.Hoy);
+        ViewBag.EstadosAgenda = await _context.Estados.AsNoTracking().OrderBy(x => x.Id).ToListAsync();
+        return View("Agenda", turnos);
     }
     [Authorize(Roles = "Tutor")]
     public async Task<IActionResult> MisTurnos()
@@ -42,6 +47,7 @@ public class TurnosController : Controller
         if (perro is null) return NotFound();
         if ((personal || !User.IsInRole("Veterinario")) && perro.Tutor.UserId != _usuarios.GetUserId(User)) return Forbid();
         ViewBag.Perro = perro.Nombre;
+        ViewBag.SoloLectura = true;
         return View("Listado", await Consultar(personal).Where(x => x.PerroId == perroId).OrderByDescending(x => x.CupoDiario.FechaCupo).ToListAsync());
     }
     private async Task Preparar(TurnoDto dto, bool personal = false, int? tutorPresencialId = null)

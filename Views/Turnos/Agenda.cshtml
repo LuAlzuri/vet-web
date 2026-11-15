@@ -1,0 +1,64 @@
+@model IReadOnlyList<VetWeb.Models.Turno>
+@using VetWeb.Services
+@{
+    ViewData["Title"] = "Mi agenda";
+    var fecha = (DateOnly)ViewBag.FechaAgenda;
+    var pendientes = Model.Where(x => x.EstadoId == EstadosTurno.Solicitado)
+        .OrderBy(x => x.CupoDiario.FechaCupo).ToList();
+    var confirmados = Model.Where(x => x.EstadoId == EstadosTurno.Confirmado
+        && DateOnly.FromDateTime(x.CupoDiario.FechaCupo) == fecha).ToList();
+}
+<div class="d-flex justify-content-between flex-wrap gap-2 mb-3">
+    <h1 class="h2">Mi agenda</h1>
+    <button class="btn btn-primary" data-form-url="@Url.Action("ObtenerFormulario")">Solicitar turno</button>
+</div>
+<nav aria-label="Secciones de la agenda" class="d-flex flex-wrap gap-2 mb-4">
+    <a class="btn btn-outline-primary" href="#solicitudes-pendientes">Solicitudes pendientes</a>
+    <a class="btn btn-outline-primary" href="#turnos-del-dia">Turnos del día</a>
+    <a class="btn btn-outline-primary" href="#historico-turnos">Histórico de turnos</a>
+</nav>
+<partial name="_CrudModal" />
+<section id="solicitudes-pendientes" class="mb-4" aria-labelledby="titulo-pendientes">
+    <h2 id="titulo-pendientes" class="h4">Solicitudes pendientes</h2>
+    @if (pendientes.Count == 0) { <p>No hay solicitudes pendientes.</p> }
+    else { <partial name="_TablaTurnos" model="pendientes" /> }
+</section>
+<section id="turnos-del-dia" class="mb-4" aria-labelledby="titulo-del-dia">
+    <h2 id="titulo-del-dia" class="h4">Turnos del día</h2>
+    <form action="@Url.Action("Listado")#turnos-del-dia" method="get" class="d-flex flex-wrap align-items-end gap-2 mb-3">
+        <div>
+            <label for="fecha" class="form-label">Fecha de los turnos confirmados</label>
+            <input type="date" id="fecha" name="fecha" value="@fecha.ToString("yyyy-MM-dd")" class="form-control" required />
+        </div>
+        <button class="btn btn-outline-primary" type="submit">Ver fecha</button>
+    </form>
+    @if (confirmados.Count == 0) { <p>No hay turnos confirmados para esta fecha.</p> }
+    else { <partial name="_TablaTurnos" model="confirmados" /> }
+</section>
+<section id="historico-turnos" aria-labelledby="titulo-historico">
+    <h2 id="titulo-historico" class="h4">Histórico de turnos</h2>
+    <div class="row g-3 mb-3">
+        <div class="col-sm-7">
+            <label for="buscar-turnos" class="form-label">Buscar por mascota o tutor</label>
+            <input type="search" id="buscar-turnos" class="form-control" />
+        </div>
+        <div class="col-sm-5">
+            <label for="estado-turnos" class="form-label">Estado del turno</label>
+            <select id="estado-turnos" class="form-select">
+                <option value="">Todos los estados</option>
+                @foreach (var estado in (IEnumerable<VetWeb.Models.Estado>)ViewBag.EstadosAgenda)
+                {
+                    <option value="@estado.Id">@estado.Descripcion</option>
+                }
+            </select>
+        </div>
+    </div>
+    @{ ViewBag.SoloLectura = true; }
+    <partial name="_TablaTurnos" model="Model" />
+    <p id="historico-vacio" class="mt-3" role="status" hidden="@(Model.Count > 0)">No hay turnos que coincidan con la búsqueda.</p>
+</section>
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/crud.js" asp-append-version="true"></script>
+    <script src="~/js/agenda.js" asp-append-version="true"></script>
+}

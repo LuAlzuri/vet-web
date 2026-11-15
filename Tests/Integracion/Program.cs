@@ -564,6 +564,19 @@ try
     Verificar(confirmarCompartido.StatusCode == HttpStatusCode.NoContent, "No se pudo confirmar la reserva de dos plazas.");
     var confirmadoApi = await demoDualVet.GetFromJsonAsync<TurnoRespuestaDto>("/api/turnos/" + turnoCompartido);
     Verificar(confirmadoApi?.CantidadReservada == 2 && confirmadoApi.EstadoId == EstadosTurno.Confirmado, "La API no muestra la cantidad confirmada.");
+    var fechaAgenda = confirmadoApi!.Fecha.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+    var agendaPorFecha = await demoDualVet.GetStringAsync("/Turnos/Listado?fecha=" + fechaAgenda);
+    string SeccionAgenda(string html, string id) =>
+        Regex.Match(html, $"<section id=\"{id}\"[^>]*>(.*?)</section>", RegexOptions.Singleline).Groups[1].Value;
+    var pendientesAgenda = SeccionAgenda(agendaPorFecha, "solicitudes-pendientes");
+    var confirmadosAgenda = SeccionAgenda(agendaPorFecha, "turnos-del-dia");
+    var historicoAgenda = SeccionAgenda(agendaPorFecha, "historico-turnos");
+    Verificar(pendientesAgenda.Contains("No hay solicitudes pendientes") && confirmadosAgenda.Contains("Milo (demo)")
+        && !SeccionAgenda(await demoDualVet.GetStringAsync("/Turnos/Listado"), "turnos-del-dia").Contains("Milo (demo)"),
+        "La agenda mezcló solicitudes o mostró confirmados de otra fecha.");
+    Verificar(historicoAgenda.Contains("Milo (demo)") && historicoAgenda.Contains("data-tutor")
+        && historicoAgenda.Contains("soloLectura=true") && !historicoAgenda.Contains("data-form-url")
+        && !historicoAgenda.Contains("data-delete-url"), "El histórico no es de solo lectura o carece de datos para el filtro.");
     var cuposApi = await demoDualVet.GetFromJsonAsync<List<CupoDiarioDto>>("/api/cupos");
     Verificar(cuposApi!.Single(x => x.Id == cupoCompartido).NumeroCuposDisponibles == 0, "La confirmación no consumió la plaza adicional.");
     async Task<HttpStatusCode> CancelarCompartido()

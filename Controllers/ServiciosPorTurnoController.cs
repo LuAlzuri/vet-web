@@ -16,7 +16,7 @@ public class ServiciosPorTurnoController : Controller
     private readonly TurnoService _turnos;
     private readonly ServicioTurnoService _servicios;
     public ServiciosPorTurnoController(ApplicationDbContext context, UserManager<ApplicationUser> usuarios, TurnoService turnos, ServicioTurnoService servicios) { _servicios = servicios; _context = context; _usuarios = usuarios; _turnos = turnos; }
-    public async Task<IActionResult> Listado(int turnoId, bool personal = false)
+    public async Task<IActionResult> Listado(int turnoId, bool personal = false, bool soloLectura = false)
     {
         if (personal && !User.IsInRole("Tutor")) return Forbid();
         ViewBag.Personal = personal || !User.IsInRole("Veterinario");
@@ -24,7 +24,7 @@ public class ServiciosPorTurnoController : Controller
         if (turno is null) return NotFound();
         if ((personal || !User.IsInRole("Veterinario")) && turno.Perro.Tutor.UserId != _usuarios.GetUserId(User)) return Forbid();
         if (User.IsInRole("Veterinario") && !await _turnos.PuedeAtenderAsync(turno, _usuarios.GetUserId(User)!)) return Forbid();
-        ViewBag.TurnoId = turnoId; ViewBag.Editable = EstadosTurno.Activo(turno.EstadoId) && User.IsInRole("Veterinario") && !personal;
+        ViewBag.TurnoId = turnoId; ViewBag.Editable = !soloLectura && EstadosTurno.Activo(turno.EstadoId) && User.IsInRole("Veterinario") && !personal;
         return View(await _context.ServiciosPorTurno.IgnoreQueryFilters().AsNoTracking().Include(x => x.Servicio).Where(x => x.TurnoId == turnoId).ToListAsync());
     }
     private async Task Preparar() => ViewBag.Servicios = new SelectList(await _context.Servicios.OrderBy(x => x.Descripcion).ToListAsync(), "Id", "Descripcion");

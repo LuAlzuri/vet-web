@@ -1,0 +1,25 @@
+@model IEnumerable<VetWeb.Models.Turno>
+@using VetWeb.Services
+@{ var soloLectura = ViewBag.SoloLectura == true; }
+<div class="table-responsive"><table class="table table-striped"><thead><tr><th>Fecha</th><th>Perro</th><th>Tutor</th><th>Veterinario</th><th>Estado</th><th>Plazas</th><th>Tratamientos</th><th>Observaciones</th><th>Acciones</th></tr></thead><tbody>
+@foreach (var item in Model) {
+<tr data-estado="@item.EstadoId"><td>@item.CupoDiario.FechaCupo.ToString("dd/MM/yyyy")</td><td data-mascota>@item.Perro.Nombre</td><td data-tutor>@item.Perro.Tutor.Usuario.Nombre @item.Perro.Tutor.Usuario.Apellido</td><td>@(item.Veterinario is null ? "No especifica" : item.Veterinario.Usuario.Nombre + " " + item.Veterinario.Usuario.Apellido)</td><td>@item.Estado.Descripcion</td><td>@item.CantidadReservada</td><td>@foreach (var tratamiento in item.Tratamientos.OrderBy(x => x.Tratamiento.Descripcion)) {
+    <div>@tratamiento.Tratamiento.Descripcion@if (!string.IsNullOrWhiteSpace(tratamiento.Razon)) { <span>: @tratamiento.Razon</span> }</div>
+}</td><td>@item.Observaciones</td><td>
+<a class="btn btn-sm btn-outline-secondary mb-1" asp-controller="ServiciosPorTurno" asp-action="Listado" asp-route-turnoId="@item.Id" asp-route-personal="@(ViewBag.Personal == true ? "true" : "false")" asp-route-soloLectura="@(soloLectura ? "true" : null)">Servicios</a>
+@if (!soloLectura && EstadosTurno.Activo(item.EstadoId)) {
+    if (User.IsInRole("Veterinario") && ViewBag.Personal != true) {
+        <button class="btn btn-sm btn-outline-primary mb-1" data-form-url="@Url.Action("ObtenerFormulario", new { id = item.Id })">Editar</button>
+        if (item.EstadoId == EstadosTurno.Solicitado) {
+            <button class="btn btn-sm btn-outline-success mb-1" data-form-url="@Url.Action("ObtenerConfirmacion", new { id = item.Id })">Confirmar</button>
+            <button class="btn btn-sm btn-outline-danger mb-1" data-delete-url="@Url.Action("Rechazar", new { id = item.Id })" data-confirm="¿Rechazar el turno y liberar su cupo?">Rechazar</button>
+        } else {
+            if (item.CupoDiario.FechaCupo <= Reloj.Hoy) {
+                <button class="btn btn-sm btn-outline-success mb-1" data-form-url="@Url.Action("ObtenerAtencion", new { id = item.Id })">Registrar atención</button>
+            } else { <span class="small text-muted">Atención disponible desde la fecha del turno.</span> }
+        }
+    }
+    <button class="btn btn-sm btn-outline-danger mb-1" data-delete-url="@Url.Action(ViewBag.Personal == true ? "CancelarPersonal" : "Cancelar", new { id = item.Id })" data-confirm="¿Cancelar el turno y liberar su cupo?">Cancelar turno</button>
+}
+</td></tr> }
+</tbody></table></div>
