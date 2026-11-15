@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="~/lib/sweetalert2/sweetalert2.min.css" asp-append-version="true" />
     <link rel="icon" type="image/svg+xml" href="~/images/brand/veteweb-logo.svg" />
     <meta name="theme-color" content="#63d3d5" />
+    @await RenderSectionAsync("Styles", required: false)
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/chatbot.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/VetWeb.styles.css" asp-append-version="true" />

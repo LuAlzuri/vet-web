@@ -101,6 +101,27 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .form-control:focus, 
 .table td .btn { margin-bottom: .3rem; }
 .table caption { padding: .7rem .85rem; color: var(--vet-muted); font-size: .85rem; }
 .table-responsive { border: 1px solid var(--vet-border); border-radius: 16px; }
+.dt-container { padding: .75rem; }
+.dt-container .dt-length select {
+  width: auto;
+  min-width: 5rem;
+  padding-inline-end: 2rem;
+}
+.dt-container .pagination .page-item.active .page-link {
+  color: var(--vet-primary-dark);
+  background-color: var(--vet-brand);
+  border-color: var(--vet-brand);
+  white-space: nowrap;
+}
+.detalle-turno-texto { white-space: pre-line; overflow-wrap: anywhere; }
+.dt-container .pagination {
+  --bs-pagination-color: var(--vet-primary);
+  --bs-pagination-hover-color: var(--vet-primary-dark);
+  --bs-pagination-hover-bg: var(--vet-soft);
+  --bs-pagination-active-color: var(--vet-primary-dark);
+  --bs-pagination-active-bg: var(--vet-brand);
+  --bs-pagination-active-border-color: var(--vet-brand);
+}
 .table-responsive > .table { margin-bottom: 0; }
 .card { border: 1px solid var(--vet-border); border-radius: 20px; box-shadow: var(--vet-shadow); }
 .card-body { padding: 1.4rem; }
@@ -143,9 +164,17 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .form-control:focus, 
 .panel-atajos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; }
 .panel-atajos-cuatro { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .panel-atajo { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; padding: 1.6rem; border: 1px solid #dce8e4; border-radius: 22px; color: var(--vet-primary); background: var(--vet-surface); text-decoration: none; box-shadow: 0 3px 9px rgb(21 62 66 / 4%); }
-a.panel-atajo { transition: background-color .15s, border-color .15s, transform .15s; }
-a.panel-atajo:hover { background: #e2eeeb; border-color: #9fc4bd; transform: translateY(-2px); }
-.panel-atajo h3 { margin: 1.3rem 0 .65rem; font-size: 1.3rem; letter-spacing: -.025em; }
+.card, .panel-atajo { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+@media (hover: hover) and (pointer: fine) {
+  .card:hover, .panel-atajo:hover {
+    border-color: var(--vet-brand);
+    box-shadow: 0 8px 22px rgb(21 62 66 / 12%), 0 0 0 3px rgb(99 211 213 / 20%);
+  }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .card:hover, .panel-atajo:hover { transform: scale(1.015); }
+}
+.panel-atajo :is(h2, h3) { margin: 1.3rem 0 .65rem; font-size: 1.3rem; letter-spacing: -.025em; }
 .panel-atajo p { margin-bottom: 1.5rem; color: var(--vet-muted); font-size: .93rem; }
 .atajo-icono { display: grid; place-items: center; width: 48px; height: 48px; background: #c7e8e3; border: 1px solid #b2d5ce; border-radius: 15px; }
 .atajo-rosa { background: #ead3d4; border-color: #dfbdc0; }
