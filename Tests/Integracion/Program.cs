@@ -487,8 +487,12 @@ try
     Verificar(inicioDualVet.Contains("Administración veterinaria") && !inicioDualVet.Contains("Mi espacio como tutor"), "El menú de Veterinario ofrece opciones del otro rol.");
     bool Denegado(HttpResponseMessage response) => response.StatusCode == HttpStatusCode.Forbidden
         || response.StatusCode == HttpStatusCode.Redirect && response.Headers.Location!.ToString().Contains("AccesoDenegado");
-    var agendaMarina = await (await demoVet.GetAsync("/Turnos/Listado")).Content.ReadAsStringAsync();
-    var agendaAlex = await (await demoDualVet.GetAsync("/Turnos/Listado")).Content.ReadAsStringAsync();
+    var portadaAgenda = await demoDualVet.GetStringAsync("/Turnos/Listado");
+    Verificar(portadaAgenda.Contains("href=\"/Turnos/Pendientes\"") && portadaAgenda.Contains("href=\"/Turnos/DelDia\"")
+        && portadaAgenda.Contains("href=\"/Turnos/Historico\"") && !portadaAgenda.Contains("data-estado="),
+        "La portada de la agenda debe dirigir a las tres pantallas sin mostrar filas.");
+    var agendaMarina = await demoVet.GetStringAsync("/Turnos/Pendientes");
+    var agendaAlex = await demoDualVet.GetStringAsync("/Turnos/Pendientes");
     Verificar(agendaMarina.Contains("Luna (demo)") && agendaMarina.Contains("Milo (demo)"), "El veterinario asignado no ve sus turnos.");
     Verificar(!agendaAlex.Contains("Luna (demo)") && !agendaAlex.Contains("Milo (demo)"), "Otro veterinario ve turnos asignados a Marina.");
     foreach(var rutaAjena in new[]{"/Turnos/ObtenerFormulario?id=" + turnoLuna, "/ServiciosPorTurno/Listado?turnoId=" + turnoLuna,
@@ -538,8 +542,10 @@ try
     }
     foreach(var profesionalCliente in new[]{demoVet,demoDualVet})
     {
-        var agenda = await (await profesionalCliente.GetAsync("/Turnos/Listado")).Content.ReadAsStringAsync();
-        Verificar(agenda.Contains("No especifica"), "Un veterinario no ve los turnos compartidos.");
+        var agenda = await profesionalCliente.GetStringAsync("/Turnos/Pendientes");
+        Verificar(agenda.Contains("No especifica") && agenda.Contains("ObtenerConfirmacion")
+            && !agenda.Contains("/ServiciosPorTurno/Listado") && !agenda.Contains("ObtenerFormulario"),
+            "Las solicitudes compartidas deben permitir confirmar y ocultar Servicios y Editar.");
         using var editarCompartido = await profesionalCliente.GetAsync("/Turnos/ObtenerFormulario?id=" + turnoCompartido);
         using var verServiciosCompartidos = await profesionalCliente.GetAsync("/ServiciosPorTurno/Listado?turnoId=" + turnoCompartido);
         Verificar(editarCompartido.IsSuccessStatusCode && verServiciosCompartidos.IsSuccessStatusCode, "Se ocultó un turno sin profesional especificado.");
@@ -565,14 +571,11 @@ try
     var confirmadoApi = await demoDualVet.GetFromJsonAsync<TurnoRespuestaDto>("/api/turnos/" + turnoCompartido);
     Verificar(confirmadoApi?.CantidadReservada == 2 && confirmadoApi.EstadoId == EstadosTurno.Confirmado, "La API no muestra la cantidad confirmada.");
     var fechaAgenda = confirmadoApi!.Fecha.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
-    var agendaPorFecha = await demoDualVet.GetStringAsync("/Turnos/Listado?fecha=" + fechaAgenda);
-    string SeccionAgenda(string html, string id) =>
-        Regex.Match(html, $"<section id=\"{id}\"[^>]*>(.*?)</section>", RegexOptions.Singleline).Groups[1].Value;
-    var pendientesAgenda = SeccionAgenda(agendaPorFecha, "solicitudes-pendientes");
-    var confirmadosAgenda = SeccionAgenda(agendaPorFecha, "turnos-del-dia");
-    var historicoAgenda = SeccionAgenda(agendaPorFecha, "historico-turnos");
+    var pendientesAgenda = await demoDualVet.GetStringAsync("/Turnos/Pendientes");
+    var confirmadosAgenda = await demoDualVet.GetStringAsync("/Turnos/DelDia?fecha=" + fechaAgenda);
+    var historicoAgenda = await demoDualVet.GetStringAsync("/Turnos/Historico");
     Verificar(pendientesAgenda.Contains("No hay solicitudes pendientes") && confirmadosAgenda.Contains("Milo (demo)")
-        && !SeccionAgenda(await demoDualVet.GetStringAsync("/Turnos/Listado"), "turnos-del-dia").Contains("Milo (demo)"),
+        && !((await demoDualVet.GetStringAsync("/Turnos/DelDia")).Contains("Milo (demo)")),
         "La agenda mezcló solicitudes o mostró confirmados de otra fecha.");
     Verificar(historicoAgenda.Contains("Milo (demo)") && historicoAgenda.Contains("data-tutor")
         && historicoAgenda.Contains("soloLectura=true") && !historicoAgenda.Contains("data-form-url")
@@ -659,6 +662,14 @@ try
     using var pantallaAuditoria = await administrador.GetAsync($"/Auditoria/Listado?tutorId={tutorVetoId}");
     Verificar(pantallaAuditoria.IsSuccessStatusCode && (await pantallaAuditoria.Content.ReadAsStringAsync()).Contains("Reserva presencial"),
         "El historial de auditoría no se renderiza en el panel administrativo.");
+    var tablaAuditoria = $"/Auditoria/Tabla?tutorId={tutorVetoId}&draw=2&start=0&length=1&search%5Bvalue%5D=reserva%20presencial";
+    var datosTabla = await administrador.GetFromJsonAsync<System.Text.Json.JsonElement>(tablaAuditoria);
+    Verificar(datosTabla.GetProperty("draw").GetInt32() == 2
+        && datosTabla.GetProperty("recordsTotal").GetInt32() > datosTabla.GetProperty("recordsFiltered").GetInt32()
+        && datosTabla.GetProperty("data").GetArrayLength() == 1
+        && datosTabla.GetProperty("data")[0][4].GetString() == "Reserva presencial",
+        "La tabla de auditoría no filtra y pagina los eventos.");
+    Verificar(Denegado(await demoDualVet.GetAsync(tablaAuditoria)), "Veterinario pudo consultar la tabla de auditoría.");
     Console.WriteLine("Auditoría: eventos de turnos y vetos, rol activo, filtro y acceso exclusivo de Administrador verificados.");
     Console.WriteLine("Agenda profesional: turnos asignados privados, URLs y operaciones ajenas bloqueadas, No especifica visible y operativo para todos.");
     var inicioVet = await (await demoVet.GetAsync("/")).Content.ReadAsStringAsync();

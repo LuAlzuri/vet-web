@@ -23,15 +23,40 @@ public class TurnosController : Controller
             .Include(x => x.Perro).ThenInclude(x => x.Tutor).ThenInclude(x => x.Usuario)
             .Include(x => x.CupoDiario).Include(x => x.Estado).Include(x => x.Veterinario).ThenInclude(x => x!.Usuario).Include(x => x.Tratamientos).ThenInclude(x => x.Tratamiento).AsQueryable();
     }
-    public async Task<IActionResult> Listado(DateOnly? fecha = null)
+    public async Task<IActionResult> Listado()
+    {
+        if (User.IsInRole("Veterinario")) return View("Agenda");
+        return await MisTurnos();
+    }
+
+    [HttpGet, Authorize(Roles = "Veterinario")]
+    public async Task<IActionResult> Pendientes()
+    {
+        ViewBag.Title = "Solicitudes pendientes";
+        ViewBag.EnSolicitudesPendientes = true;
+        return View("SeccionAgenda", await Consultar().Where(x => x.EstadoId == EstadosTurno.Solicitado)
+            .OrderBy(x => x.CupoDiario.FechaCupo).ThenBy(x => x.Id).ToListAsync());
+    }
+
+    [HttpGet, Authorize(Roles = "Veterinario")]
+    public async Task<IActionResult> DelDia(DateOnly? fecha = null)
     {
         if (!ModelState.IsValid) return BadRequest();
-        ViewBag.Personal = !User.IsInRole("Veterinario");
-        var turnos = await Consultar().OrderByDescending(x => x.CupoDiario.FechaCupo).ThenByDescending(x => x.Id).ToListAsync();
-        if (ViewBag.Personal == true) return View(turnos);
-        ViewBag.FechaAgenda = fecha ?? DateOnly.FromDateTime(Reloj.Hoy);
+        var dia = fecha?.ToDateTime(TimeOnly.MinValue) ?? Reloj.Hoy;
+        ViewBag.Title = "Turnos del día";
+        ViewBag.FechaAgenda = dia;
+        return View("SeccionAgenda", await Consultar().Where(x => x.EstadoId == EstadosTurno.Confirmado
+            && x.CupoDiario.FechaCupo == dia).OrderBy(x => x.Id).ToListAsync());
+    }
+
+    [HttpGet, Authorize(Roles = "Veterinario")]
+    public async Task<IActionResult> Historico()
+    {
+        ViewBag.Title = "Histórico de turnos";
+        ViewBag.SoloLectura = true;
         ViewBag.EstadosAgenda = await _context.Estados.AsNoTracking().OrderBy(x => x.Id).ToListAsync();
-        return View("Agenda", turnos);
+        return View("SeccionAgenda", await Consultar().OrderByDescending(x => x.CupoDiario.FechaCupo)
+            .ThenByDescending(x => x.Id).ToListAsync());
     }
     [Authorize(Roles = "Tutor")]
     public async Task<IActionResult> MisTurnos()

@@ -57,4 +57,66 @@ public class AuditoriaService(ApplicationDbContext db)
         if (haySiguiente) eventos.RemoveAt(tamano);
         return new AuditoriaPaginaDto(eventos, pagina, haySiguiente);
     }
+
+    public async Task<(int Total, int Filtrados, string[][] Filas)> ConsultarTablaAsync(
+        int inicio, int cantidad, int? tutorId, string? buscar, bool ascendente)
+    {
+        var consulta = db.AuditoriaAcciones.IgnoreQueryFilters().AsNoTracking();
+        if (tutorId.HasValue) consulta = consulta.Where(x => x.TutorId == tutorId.Value);
+        var total = await consulta.CountAsync();
+
+        if (!string.IsNullOrWhiteSpace(buscar))
+        {
+            foreach (var palabra in buscar.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var patron = "%" + palabra.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+                var acciones = EtiquetasAccion.Where(x => x.Value.Contains(palabra, StringComparison.OrdinalIgnoreCase))
+                    .Select(x => x.Key).ToArray();
+                consulta = consulta.Where(x => EF.Functions.ILike(
+                    x.Usuario.Nombre + " " + x.Usuario.Apellido + " " + x.Tutor.Usuario.Nombre + " " +
+                    x.Tutor.Usuario.Apellido + " " + x.RolActivo + " " + x.Entidad + " " + x.Accion, patron)
+                    || acciones.Contains(x.Accion));
+            }
+        }
+
+        var filtrados = string.IsNullOrWhiteSpace(buscar) ? total : await consulta.CountAsync();
+        var orden = ascendente ? consulta.OrderBy(x => x.FechaUtc).ThenBy(x => x.Id)
+            : consulta.OrderByDescending(x => x.FechaUtc).ThenByDescending(x => x.Id);
+        var eventos = await orden.Skip(inicio).Take(cantidad).Select(x => new AuditoriaDto(
+            x.Id, x.FechaUtc, x.UsuarioId, x.Usuario.Nombre + " " + x.Usuario.Apellido, x.RolActivo,
+            x.Accion, x.Entidad, x.EntidadId, x.TutorId, x.Tutor.Usuario.Nombre + " " + x.Tutor.Usuario.Apellido,
+            x.EstadoAnteriorId, x.EstadoNuevoId)).ToListAsync();
+
+        return (total, filtrados, eventos.Select(x => new[]
+        {
+            Reloj.EnArgentina(x.FechaUtc).ToString("dd/MM/yyyy HH:mm:ss"),
+            x.Usuario, x.RolActivo, $"{x.Tutor} (#{x.TutorId})", EtiquetaAccion(x.Accion),
+            $"{x.Entidad} #{x.EntidadId}",
+            (x.EstadoAnteriorId.HasValue ? EtiquetaEstado(x.EstadoAnteriorId) + " → " : "") + EtiquetaEstado(x.EstadoNuevoId)
+        }).ToArray());
+    }
+
+    private static readonly IReadOnlyDictionary<string, string> EtiquetasAccion = new Dictionary<string, string>
+    {
+        [AuditoriaAccion.TurnoSolicitado] = "Solicitud de turno",
+        [AuditoriaAccion.ReservaPresencial] = "Reserva presencial",
+        [AuditoriaAccion.TurnoEditado] = "Edición de turno",
+        [AuditoriaAccion.EstadoTurnoCambiado] = "Cambio de estado",
+        [AuditoriaAccion.VetoAutomaticoAplicado] = "Veto automático por cancelaciones",
+        [AuditoriaAccion.VetoAplicado] = "Aplicación de veto",
+        [AuditoriaAccion.VetoLevantado] = "Levantamiento de veto"
+    };
+
+    public static string EtiquetaAccion(string accion) => EtiquetasAccion.GetValueOrDefault(accion, accion);
+
+    public static string EtiquetaEstado(int? id) => id switch
+    {
+        EstadosTurno.Solicitado => "Solicitado",
+        EstadosTurno.Confirmado => "Confirmado",
+        EstadosTurno.Rechazado => "Rechazado",
+        EstadosTurno.Completado => "Completado",
+        EstadosTurno.CanceladoTutor => "Cancelado por tutor",
+        EstadosTurno.CanceladoVeterinario => "Cancelado por veterinario",
+        _ => "—"
+    };
 }

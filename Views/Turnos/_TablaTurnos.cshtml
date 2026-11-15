@@ -1,15 +1,45 @@
 @model IEnumerable<VetWeb.Models.Turno>
 @using VetWeb.Services
-@{ var soloLectura = ViewBag.SoloLectura == true; }
-<div class="table-responsive"><table class="table table-striped"><thead><tr><th>Fecha</th><th>Perro</th><th>Tutor</th><th>Veterinario</th><th>Estado</th><th>Plazas</th><th>Tratamientos</th><th>Observaciones</th><th>Acciones</th></tr></thead><tbody>
+@{
+    var soloLectura = ViewBag.SoloLectura == true;
+    var enSolicitudesPendientes = ViewBag.EnSolicitudesPendientes == true;
+    var historico = ViewBag.EstadosAgenda != null;
+}
+<div class="table-responsive"><table id="@(historico ? "tabla-historico" : null)" class="table table-striped"><thead><tr>
+    <th>Fecha</th><th>Perro</th><th>Tutor</th><th>Veterinario</th><th>Estado</th>
+    @if (!historico) { <th>Plazas</th><th>Tratamientos</th> }
+    <th>Observaciones</th>
+    @if (historico) { <th>Detalle</th> }
+    <th>Acciones</th>
+</tr></thead><tbody>
 @foreach (var item in Model) {
-<tr data-estado="@item.EstadoId"><td>@item.CupoDiario.FechaCupo.ToString("dd/MM/yyyy")</td><td data-mascota>@item.Perro.Nombre</td><td data-tutor>@item.Perro.Tutor.Usuario.Nombre @item.Perro.Tutor.Usuario.Apellido</td><td>@(item.Veterinario is null ? "No especifica" : item.Veterinario.Usuario.Nombre + " " + item.Veterinario.Usuario.Apellido)</td><td>@item.Estado.Descripcion</td><td>@item.CantidadReservada</td><td>@foreach (var tratamiento in item.Tratamientos.OrderBy(x => x.Tratamiento.Descripcion)) {
+<tr data-estado="@item.EstadoId"><td data-order="@item.CupoDiario.FechaCupo.ToString("yyyy-MM-dd")">@item.CupoDiario.FechaCupo.ToString("dd/MM/yyyy")</td><td data-mascota>@item.Perro.Nombre</td><td data-tutor>@item.Perro.Tutor.Usuario.Nombre @item.Perro.Tutor.Usuario.Apellido</td><td>@(item.Veterinario is null ? "No especifica" : item.Veterinario.Usuario.Nombre + " " + item.Veterinario.Usuario.Apellido)</td><td>@item.Estado.Descripcion</td>
+@if (!historico) {
+<td>@item.CantidadReservada</td><td>@foreach (var tratamiento in item.Tratamientos.OrderBy(x => x.Tratamiento.Descripcion)) {
     <div>@tratamiento.Tratamiento.Descripcion@if (!string.IsNullOrWhiteSpace(tratamiento.Razon)) { <span>: @tratamiento.Razon</span> }</div>
-}</td><td>@item.Observaciones</td><td>
-<a class="btn btn-sm btn-outline-secondary mb-1" asp-controller="ServiciosPorTurno" asp-action="Listado" asp-route-turnoId="@item.Id" asp-route-personal="@(ViewBag.Personal == true ? "true" : "false")" asp-route-soloLectura="@(soloLectura ? "true" : null)">Servicios</a>
+}</td>
+}
+<td>@item.Observaciones</td>
+@if (historico) {
+    var tratamientos = item.Tratamientos.OrderBy(x => x.Tratamiento.Descripcion)
+        .Select(x => string.IsNullOrWhiteSpace(x.Razon) ? x.Tratamiento.Descripcion : $"{x.Tratamiento.Descripcion}: {x.Razon}");
+    <td>
+        <button type="button" class="btn btn-sm btn-outline-primary" aria-label="Ver detalle del turno de @item.Perro.Nombre"
+                data-detalle-turno data-plazas="@item.CantidadReservada"
+                data-tratamientos="@(item.Tratamientos.Any() ? string.Join("\n", tratamientos) : "Sin tratamientos registrados.")">
+            <span aria-hidden="true">ⓘ</span>
+        </button>
+    </td>
+}
+<td>
+@if (!enSolicitudesPendientes) {
+    <a class="btn btn-sm btn-outline-secondary mb-1" asp-controller="ServiciosPorTurno" asp-action="Listado" asp-route-turnoId="@item.Id" asp-route-personal="@(ViewBag.Personal == true ? "true" : "false")" asp-route-soloLectura="@(soloLectura ? "true" : null)">Servicios</a>
+}
 @if (!soloLectura && EstadosTurno.Activo(item.EstadoId)) {
     if (User.IsInRole("Veterinario") && ViewBag.Personal != true) {
-        <button class="btn btn-sm btn-outline-primary mb-1" data-form-url="@Url.Action("ObtenerFormulario", new { id = item.Id })">Editar</button>
+        if (!enSolicitudesPendientes) {
+            <button class="btn btn-sm btn-outline-primary mb-1" data-form-url="@Url.Action("ObtenerFormulario", new { id = item.Id })">Editar</button>
+        }
         if (item.EstadoId == EstadosTurno.Solicitado) {
             <button class="btn btn-sm btn-outline-success mb-1" data-form-url="@Url.Action("ObtenerConfirmacion", new { id = item.Id })">Confirmar</button>
             <button class="btn btn-sm btn-outline-danger mb-1" data-delete-url="@Url.Action("Rechazar", new { id = item.Id })" data-confirm="¿Rechazar el turno y liberar su cupo?">Rechazar</button>

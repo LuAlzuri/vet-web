@@ -1,0 +1,62 @@
+@model IReadOnlyList<VetWeb.Models.Turno>
+@{ var historico = ViewBag.SoloLectura == true; }
+<div class="d-flex justify-content-between flex-wrap gap-2 mb-3">
+    <h1 class="h2">@ViewData["Title"]</h1>
+    <a asp-action="Listado" class="btn btn-outline-secondary">Volver a Mi agenda</a>
+</div>
+@if (ViewBag.FechaAgenda is DateTime fecha)
+{
+    <form asp-action="DelDia" method="get" class="d-flex flex-wrap align-items-end gap-2 mb-3">
+        <div>
+            <label for="fecha" class="form-label">Fecha de los turnos confirmados</label>
+            <input type="date" id="fecha" name="fecha" value="@fecha.ToString("yyyy-MM-dd")" class="form-control" required />
+        </div>
+        <button class="btn btn-outline-primary" type="submit">Ver fecha</button>
+    </form>
+}
+@if (historico)
+{
+    <section id="historico-turnos" aria-label="Buscar en el histórico">
+        <div class="row g-3 mb-3">
+            <div class="col-sm-7">
+                <label for="buscar-turnos" class="form-label">Buscar por mascota o tutor</label>
+                <input type="search" id="buscar-turnos" class="form-control" />
+            </div>
+            <div class="col-sm-5">
+                <label for="estado-turnos" class="form-label">Estado del turno</label>
+                <select id="estado-turnos" class="form-select">
+                    <option value="">Todos los estados</option>
+                    @foreach (var estado in (IEnumerable<VetWeb.Models.Estado>)ViewBag.EstadosAgenda)
+                    {
+                        <option value="@estado.Id">@estado.Descripcion</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <partial name="_TablaTurnos" model="Model" />
+    </section>
+}
+else
+{
+    <partial name="_CrudModal" />
+    @if (Model.Count > 0) { <partial name="_TablaTurnos" model="Model" /> }
+    else if (ViewBag.EnSolicitudesPendientes == true) { <p>No hay solicitudes pendientes.</p> }
+    else { <p>No hay turnos confirmados para esta fecha.</p> }
+}
+@section Styles {
+    @if (historico)
+    {
+        <link rel="stylesheet" href="~/lib/datatables/dataTables.bootstrap5.min.css" asp-append-version="true" />
+    }
+}
+@section Scripts {
+    @if (historico)
+    {
+        <partial name="_DataTablesScripts" />
+    }
+    else
+    {
+        <partial name="_ValidationScriptsPartial" />
+        <script src="~/js/crud.js" asp-append-version="true"></script>
+    }
+}
