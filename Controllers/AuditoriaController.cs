@@ -5,8 +5,33 @@ using VetWeb.Services;
 namespace VetWeb.Controllers;
 
 [Authorize(Roles = RolSesion.Administrador)]
-public class AuditoriaController(AuditoriaService auditoria) : Controller
+public class AuditoriaController(AuditoriaService auditoria, ConsultaErroresService errores) : Controller
 {
+    [HttpGet]
+    public IActionResult Inicio() => View();
+
+    [HttpGet]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> Errores(DateOnly? desde, DateOnly? hasta, int pagina = 1,
+        CancellationToken ct = default)
+    {
+        const int tamano = 20;
+        if (!ModelState.IsValid || pagina is < 1 or > 1000000 || desde > hasta) return BadRequest();
+        ViewBag.Pagina = pagina;
+        ViewBag.Desde = desde?.ToString("yyyy-MM-dd");
+        ViewBag.Hasta = hasta?.ToString("yyyy-MM-dd");
+        try
+        {
+            return View(await errores.ListarAsync(desde, hasta, pagina, tamano, ct));
+        }
+        catch (IOException)
+        {
+            Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            ViewBag.ErrorLectura = true;
+            return View(Array.Empty<VetWeb.Dtos.ErrorLogRespuesta>());
+        }
+    }
+
     [HttpGet]
     public async Task<IActionResult> Listado(int pagina = 1, int? tutorId = null)
     {

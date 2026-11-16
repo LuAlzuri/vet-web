@@ -12,5 +12,19 @@
 <div class="form-check"><input asp-for="VincularExistente" class="form-check-input" /><label asp-for="VincularExistente" class="form-check-label"></label></div>
 <p class="form-text">Al vincular otro perfil se conservan nombre, apellido y contraseña de la cuenta existente.</p>
 } else { <p class="form-text">Editar estos datos afecta también a los otros perfiles de esta cuenta. La contraseña no se modifica.</p> }
+@if (Model.Id != 0 && ViewBag.EsVeterinario == true)
+{
+    <div class="border-top pt-3">
+        @if (ViewBag.TienePerfilTutor == true)
+        {
+            <p class="form-text mb-0">Esta cuenta tiene un perfil de tutor vinculado.</p>
+        }
+        else
+        {
+            <button type="button" class="btn btn-outline-secondary"
+                    data-form-url="@Url.Action("ObtenerCliente", "Veterinarios", new { id = Model.Id })">¿Es cliente?</button>
+        }
+    </div>
+}
 </div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Guardar</button></div>
 </form>

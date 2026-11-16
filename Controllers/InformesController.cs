@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 using VetWeb.Dtos;
 using VetWeb.Services;
 
@@ -25,9 +26,16 @@ public class InformesController(InformesService informes, InformesPdfService pdf
     }
 
     [HttpGet]
-    public async Task<IActionResult> Pdf(TipoInforme tipo, PeriodoInformeDto periodo, CancellationToken ct)
+    public async Task<IActionResult> Pdf(TipoInforme tipo, PeriodoInformeDto periodo, CancellationToken ct, bool abrir = false)
     {
         if (!ModelState.IsValid || !Enum.IsDefined(tipo)) return BadRequest(ModelState);
-        return File(pdf.Generar(await informes.ConsultarAsync(tipo, periodo, ct)), "application/pdf", InformesPdfService.Archivo(tipo));
+        var contenido = pdf.Generar(await informes.ConsultarAsync(tipo, periodo, ct));
+        var nombre = InformesPdfService.Archivo(tipo);
+        if (!abrir) return File(contenido, "application/pdf", nombre);
+
+        var disposicion = new ContentDispositionHeaderValue("inline");
+        disposicion.SetHttpFileName(nombre);
+        Response.GetTypedHeaders().ContentDisposition = disposicion;
+        return File(contenido, "application/pdf");
     }
 }

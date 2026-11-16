@@ -1,0 +1,19 @@
+@model VetWeb.Dtos.VeterinarioClienteDto
+<div class="modal-header">
+    <h2 class="modal-title fs-5">Agregar perfil de tutor</h2>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+</div>
+<form asp-action="VincularCliente" asp-route-id="@ViewBag.VeterinarioId" method="post" data-crud>
+    <div class="modal-body">
+        <p>@ViewBag.NombreCliente podrá ingresar como Veterinario o Tutor con la misma cuenta.</p>
+        <label asp-for="Telefono" class="form-label"></label>
+        <input asp-for="Telefono" type="tel" autocomplete="tel" class="form-control" />
+        <span asp-validation-for="Telefono" class="text-danger"></span>
+        <div class="form-text">Opcional. El teléfono quedará a nombre del titular de la cuenta.</div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary"
+                data-form-url="@Url.Action("ObtenerFormulario", new { id = ViewBag.VeterinarioId })">Volver a editar</button>
+        <button type="submit" class="btn btn-primary">Agregar perfil</button>
+    </div>
+</form>

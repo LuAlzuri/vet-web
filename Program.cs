@@ -1,11 +1,30 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
+using Serilog.Extensions.Logging;
+using Serilog.Formatting.Json;
 using VetWeb.Data;
 using VetWeb.Models;
 
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddSingleton<ILoggerProvider>(servicios =>
+{
+    var ruta = VetWeb.Services.ConsultaErroresService.ObtenerRuta(
+        servicios.GetRequiredService<IConfiguration>(), servicios.GetRequiredService<IWebHostEnvironment>());
+    var logger = new LoggerConfiguration().MinimumLevel.Error()
+        .Filter.ByExcluding(evento => evento.Properties.TryGetValue("SourceContext", out var origen)
+            && origen is Serilog.Events.ScalarValue { Value: string categoria }
+            && categoria.StartsWith("Microsoft.AspNetCore.Diagnostics.", StringComparison.Ordinal))
+        .WriteTo.File(new JsonFormatter(renderMessage: true), ruta,
+            rollingInterval: RollingInterval.Day, fileSizeLimitBytes: 10 * 1024 * 1024,
+            rollOnFileSizeLimit: true, retainedFileCountLimit: 7)
+        .CreateLogger();
+    return new SerilogLoggerProvider(logger, dispose: true);
+});
+builder.Services.AddScoped<VetWeb.Services.ConsultaErroresService>();
 
 builder.Services.AddControllersWithViews(options =>
 {
@@ -145,6 +164,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseMiddleware<VetWeb.Middleware.RegistroErroresMiddleware>();
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();

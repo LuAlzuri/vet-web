@@ -19,6 +19,7 @@ var config = new ConfigurationBuilder().AddUserSecrets("VetWeb-Desarrollo-2026")
 var original = new NpgsqlConnectionStringBuilder(config.GetConnectionString("DefaultConnection"));
 var temporal = "vetweb_prueba_" + Guid.NewGuid().ToString("N");
 var directorioFotosPrueba = Path.Combine(Path.GetTempPath(), temporal + "_fotos");
+var directorioErroresPrueba = Path.Combine(Path.GetTempPath(), temporal + "_logs");
 var admin = new NpgsqlConnectionStringBuilder(original.ConnectionString) { Database = "postgres", Pooling = false };
 var prueba = new NpgsqlConnectionStringBuilder(original.ConnectionString) { Database = temporal };
 await using var conexionAdmin = new NpgsqlConnection(admin.ConnectionString);
@@ -136,6 +137,7 @@ try
     start.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
     start.Environment["ConnectionStrings__DefaultConnection"] = prueba.ConnectionString;
     start.Environment["FotosPerros__Directorio"] = directorioFotosPrueba;
+    start.Environment["ErrorLog__Path"] = Path.Combine(directorioErroresPrueba, "errores-.log");
     servidor = Process.Start(start)!;
     servidor.BeginOutputReadLine(); servidor.BeginErrorReadLine();
     HttpClient Cliente() => new(new HttpClientHandler { AllowAutoRedirect = false, CookieContainer = new CookieContainer() }) { BaseAddress = new Uri("http://localhost:5057") };
@@ -762,6 +764,61 @@ try
     await ElegirRol(tresRoles, "Tutor");
     using var catalogosConTutorActivo = await tresRoles.GetAsync("/api/tratamientos");
     Verificar(catalogosConTutorActivo.StatusCode == HttpStatusCode.Forbidden, "Una cuenta con tres roles conservó acceso de catálogo al activar Tutor.");
+
+    int idVeterinarioParaVincular;
+    await using (var scope = provider.CreateAsyncScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        idVeterinarioParaVincular = await db.Veterinarios.Where(x => x.Usuario.Email == "alta-vet@prueba.invalid")
+            .Select(x => x.Id).SingleAsync();
+    }
+    var tokenVincular = await Token(administrador, $"/Veterinarios/ObtenerCliente?id={idVeterinarioParaVincular}");
+    var rutaVincular = $"/Veterinarios/VincularCliente?id={idVeterinarioParaVincular}";
+    using var prohibidoVincular = await vet.PostAsync(rutaVincular, new FormUrlEncodedContent(new Dictionary<string, string>
+        { ["__RequestVerificationToken"] = await Token(vet, "/Tutores/ObtenerFormulario") }));
+    Verificar(Denegado(prohibidoVincular), "Veterinario pudo vincular un cliente desde Administración.");
+    var datosCliente = new Dictionary<string, string>
+    {
+        ["__RequestVerificationToken"] = tokenVincular, ["Telefono"] = "+54 11 2345 6789"
+    };
+    using var vinculado = await administrador.PostAsync(rutaVincular, new FormUrlEncodedContent(datosCliente));
+    Verificar(vinculado.IsSuccessStatusCode && (await vinculado.Content.ReadAsStringAsync()).Contains("\"success\":true"),
+        "Falló la vinculación del veterinario como cliente.");
+    using var duplicadoCliente = await administrador.PostAsync(rutaVincular, new FormUrlEncodedContent(datosCliente));
+    Verificar(duplicadoCliente.StatusCode == HttpStatusCode.BadRequest, "Se permitió duplicar un perfil de tutor.");
+    await using (var scope = provider.CreateAsyncScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var tutor = await db.Tutores.Include(x => x.Telefonos).SingleAsync(x => x.Usuario.Email == "alta-vet@prueba.invalid");
+        Verificar(tutor.Telefonos.Single().Numero == datosCliente["Telefono"], "No se guardó el teléfono del cliente.");
+    }
+    using var clienteVinculado = Cliente();
+    await Ingresar(clienteVinculado, "alta-vet@prueba.invalid");
+    await ElegirRol(clienteVinculado, "Tutor");
+    Verificar((await clienteVinculado.GetAsync("/Perros/MisPerros")).IsSuccessStatusCode,
+        "La cuenta vinculada no pudo acceder como Tutor con la contraseña original.");
+
+    var inicioAuditoria = await administrador.GetStringAsync("/Auditoria/Inicio");
+    Verificar(inicioAuditoria.Contains("Movimientos") && inicioAuditoria.Contains("/Auditoria/Errores"),
+        "La portada de Auditoría no ofrece ambas secciones.");
+    Directory.CreateDirectory(directorioErroresPrueba);
+    await File.WriteAllLinesAsync(Path.Combine(directorioErroresPrueba, "errores-20010203.log"), new[]
+    {
+        """{"Timestamp":"2001-02-03T04:05:06Z","Level":"Error","MessageTemplate":"Evento de prueba","Exception":"Interno de prueba","Properties":{"Metodo":"GET","Ruta":"/api/prueba","IdSolicitud":"prueba-123"}}""",
+        """{"Timestamp":"2001-02-03T06:00:00Z","Level":"Warning","MessageTemplate":"Aviso descartado"}""",
+        "{"
+    });
+    const string fechaErrores = "?desde=2001-02-03&hasta=2001-02-03";
+    var listaErrores = await administrador.GetFromJsonAsync<List<ErrorLogRespuesta>>("/api/auditoria/errores" + fechaErrores);
+    Verificar(listaErrores?.Count == 1 && listaErrores[0].Ruta == "/api/prueba" && listaErrores[0].IdSolicitud == "prueba-123",
+        "El lector de errores no interpretó correctamente el formato de Serilog.");
+    var pantallaErrores = await administrador.GetStringAsync("/Auditoria/Errores" + fechaErrores);
+    Verificar(pantallaErrores.Contains("Evento de prueba") && !pantallaErrores.Contains("Interno de prueba"),
+        "La pantalla no muestra el evento o expone la excepción interna.");
+    Verificar((await vet.GetAsync("/api/auditoria/errores")).StatusCode == HttpStatusCode.Forbidden
+        && (await anon.GetAsync("/api/auditoria/errores")).StatusCode == HttpStatusCode.Unauthorized,
+        "El registro de errores es accesible sin Administrador activo.");
+    Console.WriteLine("Auditoría de errores: tarjetas, formato Serilog, filtro por fecha y permisos verificados.");
 }
 finally
 {
@@ -776,5 +833,9 @@ finally
         || !Regex.IsMatch(Path.GetFileName(rutaFotos), "^vetweb_prueba_[a-f0-9]{32}_fotos$"))
         throw new Exception("La ruta de fotos de prueba no está dentro de la carpeta temporal esperada.");
     if (Directory.Exists(rutaFotos)) Directory.Delete(rutaFotos, recursive: true);
+    var rutaLogs = Path.GetFullPath(directorioErroresPrueba);
+    if (rutaLogs.StartsWith(raizTemporal, StringComparison.OrdinalIgnoreCase)
+        && Regex.IsMatch(Path.GetFileName(rutaLogs), "^vetweb_prueba_[a-f0-9]{32}_logs$") && Directory.Exists(rutaLogs))
+        Directory.Delete(rutaLogs, recursive: true);
     Console.WriteLine("Base temporal eliminada. La base de trabajo no se modificó.");
 }
