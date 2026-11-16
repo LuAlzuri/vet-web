@@ -74,6 +74,32 @@ public class CuentaService
         return veterinario ? profesional!.Id : tutor!.Id;
     }
 
+    public async Task VincularClienteAsync(int veterinarioId, VeterinarioClienteDto dto)
+    {
+        ValidacionDto.Comprobar(dto);
+        await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        var usuario = await _context.Veterinarios.Where(x => x.Id == veterinarioId && x.Usuario.Activo)
+            .Select(x => x.Usuario).SingleOrDefaultAsync()
+            ?? throw new InvalidOperationException("El veterinario no está disponible.");
+        await ProtegerCuentaAdministrativaAsync(usuario);
+        if (await _context.Tutores.IgnoreQueryFilters().AnyAsync(x => x.UserId == usuario.Id))
+            throw new InvalidOperationException("La cuenta ya tiene un perfil de tutor, activo o dado de baja.");
+
+        Comprobar(await _usuarios.AddToRoleAsync(usuario, "Tutor"));
+        var tutor = new Tutor { UserId = usuario.Id };
+        if (!string.IsNullOrWhiteSpace(dto.Telefono))
+        {
+            tutor.Telefonos.Add(new TelefonoTutor
+            {
+                NombrePropietario = $"{usuario.Nombre} {usuario.Apellido}",
+                Numero = dto.Telefono.Trim()
+            });
+        }
+        _context.Tutores.Add(tutor);
+        await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
+    }
+
     public async Task EliminarAsync(int id, bool veterinario, string usuarioActualId)
     {
         await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);

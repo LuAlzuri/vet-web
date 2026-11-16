@@ -1,0 +1,64 @@
+@using VetWeb.Services
+@model IReadOnlyList<VetWeb.Dtos.ErrorLogRespuesta>
+@{
+    ViewData["Title"] = "Errores";
+    var pagina = (int)ViewBag.Pagina;
+}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h1 class="h2 mb-0">Errores</h1>
+    <a asp-action="Inicio" class="btn btn-outline-secondary">Volver a Auditoría</a>
+</div>
+<form asp-action="Errores" method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-auto">
+        <label for="desde" class="form-label">Desde</label>
+        <input id="desde" name="desde" type="date" value="@ViewBag.Desde" class="form-control" />
+    </div>
+    <div class="col-auto">
+        <label for="hasta" class="form-label">Hasta</label>
+        <input id="hasta" name="hasta" type="date" value="@ViewBag.Hasta" class="form-control" />
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+        <a asp-action="Errores" class="btn btn-outline-secondary">Ver todos</a>
+    </div>
+</form>
+@if (ViewBag.ErrorLectura == true)
+{
+    <p role="alert">No se pudo leer el registro de errores.</p>
+}
+else if (Model.Count == 0)
+{
+    <p>No hay errores para mostrar.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead><tr><th>Fecha y hora</th><th>Nivel</th><th>Mensaje</th><th>Origen</th><th>Método</th><th>Ruta</th><th>ID de solicitud</th></tr></thead>
+            <tbody>
+            @foreach (var error in Model)
+            {
+                <tr>
+                    <td>@Reloj.EnArgentina(error.FechaUtc.UtcDateTime).ToString("dd/MM/yyyy HH:mm:ss")</td>
+                    <td>@error.Nivel</td><td>@error.Mensaje</td><td>@error.Origen</td>
+                    <td>@error.Metodo</td><td>@error.Ruta</td><td>@error.IdSolicitud</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+@if (ViewBag.ErrorLectura != true && (pagina > 1 || Model.Count == 20))
+{
+    <nav aria-label="Páginas de errores" class="d-flex gap-2 align-items-center mt-3">
+        @if (pagina > 1)
+        {
+            <a asp-action="Errores" asp-route-pagina="@(pagina - 1)" asp-route-desde="@ViewBag.Desde" asp-route-hasta="@ViewBag.Hasta" class="btn btn-outline-secondary">Anterior</a>
+        }
+        <span>Página @pagina</span>
+        @if (Model.Count == 20)
+        {
+            <a asp-action="Errores" asp-route-pagina="@(pagina + 1)" asp-route-desde="@ViewBag.Desde" asp-route-hasta="@ViewBag.Hasta" class="btn btn-outline-secondary">Siguiente</a>
+        }
+    </nav>
+}

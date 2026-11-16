@@ -123,7 +123,12 @@ internal static class InformesPruebas
             if (!string.IsNullOrWhiteSpace(carpeta))
                 await File.WriteAllTextAsync(Path.Combine(carpeta, reporte + ".html"), await grilla.Content.ReadAsStringAsync());
             using var pdfWeb = await administrador.GetAsync($"/Informes/Pdf?tipo={i}&desde=2026-03-10&hasta=2026-03-10");
-            Exigir(pdfWeb.IsSuccessStatusCode && (await pdfWeb.Content.ReadAsByteArrayAsync()).AsSpan().StartsWith("%PDF-"u8), "la descarga web no genera PDF.");
+            Exigir(pdfWeb.IsSuccessStatusCode && pdfWeb.Content.Headers.ContentDisposition?.DispositionType == "attachment"
+                && (await pdfWeb.Content.ReadAsByteArrayAsync()).AsSpan().StartsWith("%PDF-"u8), "la descarga web no genera un PDF adjunto.");
+            using var abrirPdf = await administrador.GetAsync($"/Informes/Pdf?tipo={i}&desde=2026-03-10&hasta=2026-03-10&abrir=true");
+            Exigir(abrirPdf.IsSuccessStatusCode && abrirPdf.Content.Headers.ContentType?.MediaType == "application/pdf"
+                && abrirPdf.Content.Headers.ContentDisposition?.DispositionType == "inline"
+                && (await abrirPdf.Content.ReadAsByteArrayAsync()).AsSpan().StartsWith("%PDF-"u8), "el informe no puede abrirse en el visor del navegador.");
         }
         foreach (var cliente in new[] { tutor, veterinario, cuentaAdminConRolVeterinario, anonimo })
             foreach (var ruta in new[] { "/Informes/Listado", "/Informes/Pdf?tipo=0&desde=2026-03-10&hasta=2026-03-10" })

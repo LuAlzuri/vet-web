@@ -29,16 +29,45 @@ public class VeterinariosController : Controller
         if (id == 0) return PartialView("~/Views/Shared/_FormularioCuenta.cshtml", new CuentaDto());
         var dto = await _context.Veterinarios.Where(x => x.Id == id && x.Usuario.Activo)
             .Select(x => new CuentaDto { Id = x.Id, Nombre = x.Usuario.Nombre, Apellido = x.Usuario.Apellido, Email = x.Usuario.Email!, Matricula = x.Matricula, }).SingleOrDefaultAsync();
-        return dto is null ? NotFound() : PartialView("~/Views/Shared/_FormularioCuenta.cshtml", dto);
+        return dto is null ? NotFound() : await FormularioCuenta(dto);
     }
     [HttpPost]
     public async Task<IActionResult> Guardar(CuentaDto dto)
     {
         Preparar();
-        if (!ModelState.IsValid) return PartialView("~/Views/Shared/_FormularioCuenta.cshtml", dto);
+        if (!ModelState.IsValid) return await FormularioCuenta(dto);
         await _cuentas.GuardarAsync(dto, true);
         return Json(new { success = true });
     }
+
+    private async Task<IActionResult> FormularioCuenta(CuentaDto dto)
+    {
+        if (dto.Id != 0)
+            ViewBag.TienePerfilTutor = await _context.Veterinarios.AnyAsync(x => x.Id == dto.Id &&
+                _context.Tutores.IgnoreQueryFilters().Any(t => t.UserId == x.UserId));
+        return PartialView("~/Views/Shared/_FormularioCuenta.cshtml", dto);
+    }
+    [HttpGet]
+    public Task<IActionResult> ObtenerCliente(int id) => FormularioCliente(id, new VeterinarioClienteDto());
+
+    [HttpPost]
+    public async Task<IActionResult> VincularCliente(int id, VeterinarioClienteDto dto)
+    {
+        if (!ModelState.IsValid) return await FormularioCliente(id, dto);
+        await _cuentas.VincularClienteAsync(id, dto);
+        return Json(new { success = true });
+    }
+
+    private async Task<IActionResult> FormularioCliente(int id, VeterinarioClienteDto dto)
+    {
+        var nombre = await _context.Veterinarios.Where(x => x.Id == id && x.Usuario.Activo)
+            .Select(x => x.Usuario.Nombre + " " + x.Usuario.Apellido).SingleOrDefaultAsync();
+        if (nombre is null) return NotFound();
+        ViewBag.VeterinarioId = id;
+        ViewBag.NombreCliente = nombre;
+        return PartialView("_FormularioCliente", dto);
+    }
+
     [HttpPost]
     public async Task<IActionResult> Eliminar(int id)
     {

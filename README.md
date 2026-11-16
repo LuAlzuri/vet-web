@@ -188,6 +188,8 @@ Se registran solicitudes, reservas presenciales, ediciones y cambios de estado d
 
 El Administrador puede consultar el historial desde **Auditoría** o mediante `GET /api/auditoria?pagina=1&tutorId=123`. El filtro por tutor es opcional. La pantalla muestra fechas de Argentina y la API devuelve fechas UTC.
 
+**Auditoría → Errores** consulta los registros técnicos de Serilog. El formato JSON, la rotación diaria y por tamaño (10 MiB), la retención de siete archivos y los campos de respuesta siguen el esquema del móvil. VetWeb guarda los archivos en `App_Data/logs/errores-.log` o en la ruta privada configurada mediante `ErrorLog:Path`. La pantalla y la API muestran los campos de diagnóstico, sin incluir la excepción interna.
+
 ## Informes para Administrador
 
 El rol **Administrador activo** puede abrir **Informes** desde el menú o Inicio, elegir fechas inclusivas y consultar tres grillas, cada una con su descarga PDF:

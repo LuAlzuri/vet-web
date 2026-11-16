@@ -30,8 +30,13 @@
         <div><h2 class="h4">@InformesService.Titulo(informe.Tipo)</h2>
             <p class="mb-1">@informe.Desde.ToString("dd/MM/yyyy") al @informe.Hasta.ToString("dd/MM/yyyy") · Total: <strong>@informe.Total</strong></p>
         </div>
-        <a class="btn btn-outline-primary" asp-action="Pdf" asp-route-tipo="@informe.Tipo"
-           asp-route-desde="@informe.Desde.ToString("yyyy-MM-dd")" asp-route-hasta="@informe.Hasta.ToString("yyyy-MM-dd")">Descargar PDF</a>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-primary" asp-action="Pdf" asp-route-tipo="@informe.Tipo" asp-route-abrir="true"
+               asp-route-desde="@informe.Desde.ToString("yyyy-MM-dd")" asp-route-hasta="@informe.Hasta.ToString("yyyy-MM-dd")"
+               target="_blank" rel="noopener" aria-label="Abrir PDF en otra pestaña">Abrir PDF</a>
+            <a class="btn btn-outline-primary" asp-action="Pdf" asp-route-tipo="@informe.Tipo"
+               asp-route-desde="@informe.Desde.ToString("yyyy-MM-dd")" asp-route-hasta="@informe.Hasta.ToString("yyyy-MM-dd")">Descargar PDF</a>
+        </div>
     </div>
     <p>@InformesService.Criterio(informe.Tipo)</p>
     <div class="alert alert-info">
