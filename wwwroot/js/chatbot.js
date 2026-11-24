@@ -46,6 +46,11 @@
         status.textContent = "Conversación reiniciada.";
         input.focus();
     });
+    input.addEventListener("keydown", event => {
+        if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+        event.preventDefault();
+        if (!event.repeat && !send.disabled) form.requestSubmit(send);
+    });
     form.addEventListener("submit", async event => {
         event.preventDefault();
         const text = input.value.trim();
