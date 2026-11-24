@@ -132,9 +132,19 @@ internal static class ChatbotAccionesPruebas
         }
         await Rechaza(clienteB, confirmar, HttpStatusCode.BadRequest);
         await Rechaza(clienteA, new() { Accion = "confirmar", Confirmacion = "token adulterado" }, HttpStatusCode.BadRequest);
-        var reservado = await Ejecutar(clienteA, confirmar);
+        var reservaReemplazada = await Proponer(clienteA, perroA2, tutorA, cupo2);
+        var reservaActual = await Proponer(clienteA, perroA, tutorA, cupo1);
+        await Rechaza(clienteA, confirmar, HttpStatusCode.BadRequest);
+        await Rechaza(clienteA, reservaReemplazada, HttpStatusCode.BadRequest);
+        reservaActual.PerroId = perroB;
+        reservaActual.TutorId = tutorB;
+        reservaActual.CupoId = cupo2;
+        reservaActual.ServicioIds = [int.MaxValue];
+        var reservado = await Ejecutar(clienteA, reservaActual);
         Exigir(reservado.Mensaje.Contains("solicitado correctamente"), "no solicitó");
         await Rechaza(clienteA, confirmar, HttpStatusCode.BadRequest);
+        await Rechaza(clienteA, reservaActual, HttpStatusCode.BadRequest);
+        await Rechaza(clienteA, new() { Accion = "preparar", PerroId = perroA, CupoId = cupo2, ServicioIds = [int.MaxValue] }, HttpStatusCode.BadRequest);
         var descartado = await Proponer(clienteA, perroA2, tutorA, cupo2);
         await Ejecutar(clienteA, new() { Accion = "descartar" });
         await Rechaza(clienteA, descartado, HttpStatusCode.BadRequest);

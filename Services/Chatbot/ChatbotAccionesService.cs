@@ -7,7 +7,7 @@ using VetWeb.Models;
 
 namespace VetWeb.Services.Chatbot;
 
-// Fachada común para el flujo guiado actual y las futuras herramientas de Gemini.
+// Flujo guiado compartido por el menú del asistente y las solicitudes desde texto.
 // La identidad siempre se toma de la sesión: nunca del mensaje o de los parámetros.
 public sealed class ChatbotAccionesService(ApplicationDbContext db, TurnoService turnos, VetoService vetos,
     ChatbotReservasPendientes pendientes, ChatbotAdministradorService administrador)
@@ -26,13 +26,15 @@ public sealed class ChatbotAccionesService(ApplicationDbContext db, TurnoService
         if (solicitud.ServicioIds is null || solicitud.ServicioIds.Any(x => x <= 0)
             || solicitud.ServicioIds.Count != solicitud.ServicioIds.Distinct().Count())
             throw new InvalidOperationException("Seleccioná servicios válidos y distintos.");
+        var pistas = solicitud.PistasReserva;
         var acciones = new List<ChatbotAccion>();
         var tablas = new List<ChatbotTabla>();
         var mensaje = "";
         ChatbotAccionSolicitud Nueva(string accion, int? perro = null, int? tutor = null, int? cupo = null, int pagina = 1,
             List<int>? servicios = null, string? confirmacion = null) => new()
             { Accion = accion, PerroId = perro, TutorId = tutor, CupoId = cupo, Pagina = pagina,
-                ServicioIds = servicios ?? [], Busqueda = solicitud.Busqueda, Confirmacion = confirmacion };
+                ServicioIds = servicios ?? [], Busqueda = solicitud.Busqueda, Confirmacion = confirmacion,
+                PistasReserva = accion is "tutores-reserva" or "perros-reserva" or "reserva-cupos" or "reserva-servicios" ? pistas : null };
         void Boton(string etiqueta, ChatbotAccionSolicitud siguiente) => acciones.Add(new(etiqueta, siguiente));
         void Paginar(int cantidad, Func<int, ChatbotAccionSolicitud> siguiente)
         {
@@ -73,9 +75,10 @@ public sealed class ChatbotAccionesService(ApplicationDbContext db, TurnoService
             case "tutores-reserva":
                 if (!veterinario) throw new UnauthorizedAccessException();
                 var tutores = db.Tutores.AsNoTracking().Where(x => x.Usuario.Activo);
-                if (!string.IsNullOrWhiteSpace(solicitud.Busqueda))
+                var busquedaTutor = solicitud.Busqueda ?? (solicitud.Accion == "tutores-reserva" ? pistas?.Tutor : null);
+                if (!string.IsNullOrWhiteSpace(busquedaTutor))
                 {
-                    var texto = solicitud.Busqueda.Trim().ToLower();
+                    var texto = busquedaTutor.Trim().ToLowerInvariant();
                     tutores = tutores.Where(x => (x.Usuario.Nombre + " " + x.Usuario.Apellido).ToLower().Contains(texto));
                 }
                 var listaTutores = await tutores.OrderBy(x => x.Usuario.Apellido).ThenBy(x => x.Id)
@@ -83,8 +86,11 @@ public sealed class ChatbotAccionesService(ApplicationDbContext db, TurnoService
                     .Select(x => new { x.Id, x.Usuario.Nombre, x.Usuario.Apellido }).ToListAsync();
                 mensaje = "Elegí el tutor por nombre e identificador. Podés buscarlo por nombre o apellido.";
                 foreach (var tutor in listaTutores.Take(Tamano))
-                    Boton($"{tutor.Nombre} {tutor.Apellido} · Tutor #{tutor.Id}",
-                        Nueva(solicitud.Accion == "tutores-faltas" ? "faltas" : "perros-reserva", tutor: tutor.Id));
+                {
+                    var siguiente = Nueva(solicitud.Accion == "tutores-faltas" ? "faltas" : "perros-reserva", tutor: tutor.Id);
+                    if (solicitud.Accion == "tutores-reserva") siguiente.Busqueda = null;
+                    Boton($"{tutor.Nombre} {tutor.Apellido} · Tutor #{tutor.Id}", siguiente);
+                }
                 Paginar(listaTutores.Count, p => Nueva(solicitud.Accion, pagina: p));
                 if (listaTutores.Count == 0) mensaje = "No se encontraron tutores activos con esa búsqueda.";
                 return new(mensaje, tablas, acciones, BuscarTutor: true);
@@ -92,9 +98,11 @@ public sealed class ChatbotAccionesService(ApplicationDbContext db, TurnoService
             case "perros-reserva":
                 if (veterinario && (solicitud.Accion == "perros-reserva" || solicitud.TutorId.HasValue) && !await db.Tutores.AnyAsync(x => x.Id == solicitud.TutorId && x.Usuario.Activo))
                     throw new UnauthorizedAccessException();
+                var nombreMascota = solicitud.Accion == "perros-reserva" ? pistas?.Mascota?.Trim().ToLowerInvariant() ?? "" : "";
                 var perros = await Perros().Where(x => !veterinario || !solicitud.TutorId.HasValue || x.TutorId == solicitud.TutorId)
                     .Where(x => string.IsNullOrEmpty(solicitud.Busqueda) || x.Nombre.ToLower().Contains(solicitud.Busqueda.ToLower()))
-                    .OrderBy(x => x.Nombre).ThenBy(x => x.Id).Skip((solicitud.Pagina - 1) * Tamano).Take(Tamano + 1)
+                    .OrderByDescending(x => nombreMascota != "" && x.Nombre.ToLower().Contains(nombreMascota))
+                    .ThenBy(x => x.Nombre).ThenBy(x => x.Id).Skip((solicitud.Pagina - 1) * Tamano).Take(Tamano + 1)
                     .Select(x => new { x.Id, x.Nombre, x.TutorId, Tutor = x.Tutor.Usuario.Nombre + " " + x.Tutor.Usuario.Apellido }).ToListAsync();
                 mensaje = perros.Count == 0 ? "No hay perros disponibles para esta selección." : "Elegí el perro. Cada opción indica quién es su tutor.";
                 foreach (var perro in perros.Take(Tamano))
@@ -104,9 +112,7 @@ public sealed class ChatbotAccionesService(ApplicationDbContext db, TurnoService
                 break;
             case "cupos":
             case "reserva-cupos":
-                Perro? elegido = null;
-                if (solicitud.Accion == "reserva-cupos") elegido = await PerroElegido();
-                if (elegido is null)
+                if (solicitud.Accion == "cupos")
                 {
                     var porDia = await db.CuposDiarios.AsNoTracking().Where(x => x.FechaCupo >= Reloj.Hoy && x.NumeroCuposDisponibles > 0)
                         .GroupBy(x => x.FechaCupo).OrderBy(x => x.Key).Skip((solicitud.Pagina - 1) * Tamano).Take(Tamano + 1)
@@ -117,18 +123,30 @@ public sealed class ChatbotAccionesService(ApplicationDbContext db, TurnoService
                     Paginar(porDia.Count, p => Nueva("cupos", pagina: p));
                     break;
                 }
-                var cupos = await db.CuposDiarios.AsNoTracking().Where(x => x.FechaCupo >= Reloj.Hoy && x.NumeroCuposDisponibles > 0)
-                    .OrderBy(x => x.FechaCupo).ThenBy(x => x.Id).Skip((solicitud.Pagina - 1) * Tamano).Take(Tamano + 1).ToListAsync();
+                var elegido = await PerroElegido();
+                var hoy = Reloj.Hoy;
+                var agenda = db.CuposDiarios.AsNoTracking().Where(x => x.FechaCupo >= hoy && x.NumeroCuposDisponibles > 0);
+                var diaIndicado = !string.IsNullOrWhiteSpace(pistas?.Dia);
+                var fechaValida = DateTime.TryParseExact(pistas?.Dia, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                    DateTimeStyles.None, out var dia) && dia >= hoy;
+                if (fechaValida) agenda = agenda.Where(x => x.FechaCupo == dia);
+                var cupos = await agenda.OrderBy(x => x.FechaCupo).ThenBy(x => x.Id)
+                    .Skip((solicitud.Pagina - 1) * Tamano).Take(Tamano + 1).ToListAsync();
                 tablas.Add(new("Cupos disponibles", ["Día", "Cupos disponibles"], cupos.Take(Tamano)
                     .Select(x => new[] { Fecha(x.FechaCupo), x.NumeroCuposDisponibles.ToString() }).ToList()));
-                mensaje = elegido is null ? "Disponibilidad actual. Consultar cupos no realiza una reserva."
-                    : $"Elegí el día para {elegido.Nombre}. Tutor: {TutorNombre(elegido)} (#{elegido.TutorId}).";
-                if (cupos.Count == 0) mensaje = "No hay días con cupos disponibles en esta página.";
-                if (elegido is not null)
-                    foreach (var cupo in cupos.Take(Tamano))
-                        Boton($"{Fecha(cupo.FechaCupo)} · {cupo.NumeroCuposDisponibles} cupos · Agenda #{cupo.Id}",
-                            Nueva("reserva-servicios", elegido.Id, elegido.TutorId, cupo.Id));
+                mensaje = $"Elegí el día para {elegido.Nombre}. Tutor: {TutorNombre(elegido)} (#{elegido.TutorId}).";
+                if (diaIndicado && !fechaValida) mensaje = "La fecha indicada no es válida o ya pasó. " + mensaje;
+                if (cupos.Count == 0) mensaje = fechaValida ? $"No quedan cupos para el {Fecha(dia)}." : "No hay días con cupos disponibles en esta página.";
+                foreach (var cupo in cupos.Take(Tamano))
+                    Boton($"{Fecha(cupo.FechaCupo)} · {cupo.NumeroCuposDisponibles} cupos · Agenda #{cupo.Id}",
+                        Nueva("reserva-servicios", elegido.Id, elegido.TutorId, cupo.Id));
                 Paginar(cupos.Count, p => Nueva(solicitud.Accion, solicitud.PerroId, solicitud.TutorId, pagina: p));
+                if (fechaValida)
+                {
+                    var otrosDias = Nueva("reserva-cupos", elegido.Id, elegido.TutorId);
+                    otrosDias.PistasReserva = pistas! with { Dia = null };
+                    Boton("Ver otros días", otrosDias);
+                }
                 break;
             case "turnos":
                 var listado = await turnos.ConsultarVisibles(usuario, veterinario).OrderByDescending(x => x.CupoDiario.FechaCupo).ThenByDescending(x => x.Id)
@@ -206,7 +224,10 @@ public sealed class ChatbotAccionesService(ApplicationDbContext db, TurnoService
                 break;
             case "reserva-servicios":
                 var mascota = await PerroElegido();
-                var servicios = await db.Servicios.AsNoTracking().OrderBy(x => x.Descripcion).ThenBy(x => x.Id)
+                var nombreServicio = pistas?.Servicio?.Trim().ToLowerInvariant() ?? "";
+                var servicios = await db.Servicios.AsNoTracking()
+                    .OrderByDescending(x => nombreServicio != "" && x.Descripcion.ToLower().Contains(nombreServicio))
+                    .ThenBy(x => x.Descripcion).ThenBy(x => x.Id)
                     .Skip((solicitud.Pagina - 1) * Tamano).Take(Tamano + 1).ToListAsync();
                 var seleccion = await db.Servicios.AsNoTracking().Where(x => solicitud.ServicioIds.Contains(x.Id)).OrderBy(x => x.Id).ToListAsync();
                 if (seleccion.Count != solicitud.ServicioIds.Count) throw new InvalidOperationException("Algún servicio ya no está disponible.");

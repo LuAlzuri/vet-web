@@ -14,6 +14,7 @@
     let busy = false;
     let searchRequest = null;
     let soloLectura = false;
+    let propuestaPendiente = null;
     function element(tag, text, className) {
         const node = document.createElement(tag);
         if (text !== undefined) node.textContent = text;
@@ -64,6 +65,17 @@
             button.addEventListener("click", () => execute(action.solicitud));
             buttons.append(button);
         }
+        if (soloLectura && propuestaPendiente) {
+            const resume = element("button", "Volver a la propuesta de turno", "btn btn-outline-primary btn-sm");
+            resume.type = "button";
+            resume.addEventListener("click", () => {
+                if (busy || root.dataset.textoOcupado === "true") return;
+                soloLectura = false;
+                searchRequest = null;
+                render(propuestaPendiente);
+            });
+            buttons.append(resume);
+        }
         result.append(buttons);
         search.hidden = !data.buscarTutor;
         container.scrollTop = 0;
@@ -93,8 +105,11 @@
                 throw new Error(problem.mensaje || "No se pudo realizar la acción. Revisá las opciones e intentá nuevamente.");
             }
             const data = await response.json();
+            if (request.accion === "preparar") propuestaPendiente = data;
+            if (request.accion === "confirmar" || request.accion === "descartar") propuestaPendiente = null;
             render(data);
             searchRequest = data.buscarTutor ? { ...request, pagina: 1 } : null;
+            if (searchRequest) searchInput.value = searchRequest.busqueda ?? searchRequest.pistasReserva?.tutor ?? "";
             status.textContent = "";
             loaded = true;
         } catch (error) {
@@ -109,11 +124,13 @@
             container.querySelectorAll("button, input").forEach(node => node.disabled = false);
         }
     }
-    root.addEventListener("chatbot-consulta", event => {
+    root.addEventListener("chatbot-resultado", event => {
         if (busy) return;
-        soloLectura = true;
-        render(event.detail);
-        searchRequest = event.detail.buscarTutor ? { accion: "tutores-faltas", pagina: 1 } : null;
+        const { resultado, inicioReserva } = event.detail;
+        soloLectura = !inicioReserva;
+        render(resultado);
+        searchRequest = resultado.buscarTutor ? inicioReserva ?? { accion: "tutores-faltas", pagina: 1 } : null;
+        if (searchRequest) searchInput.value = searchRequest.busqueda ?? searchRequest.pistasReserva?.tutor ?? "";
         loaded = true;
     });
     home.addEventListener("click", () => { soloLectura = false; execute({ accion: "descartar" }); });
