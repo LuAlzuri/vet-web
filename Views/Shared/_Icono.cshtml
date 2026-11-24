@@ -1,5 +1,5 @@
 @model string
-<svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+<svg class="icono" viewBox="@(Model == "huella" ? "6 7 28 26" : "0 0 24 24")" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
 @switch (Model)
 {
     case "catalogos":
@@ -25,9 +25,13 @@
         <circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="m8 8 12 12M8 16 20 4m-7 8-2-2" />
         break;
     default:
-        <ellipse cx="7" cy="7" rx="2" ry="3" transform="rotate(-25 7 7)" /><ellipse cx="17" cy="7" rx="2" ry="3" transform="rotate(25 17 7)" />
-        <ellipse cx="3" cy="12" rx="1.6" ry="2.4" transform="rotate(-30 3 12)" /><ellipse cx="21" cy="12" rx="1.6" ry="2.4" transform="rotate(30 21 12)" />
-        <path d="M12 11c-2 0-3 2-5 4-4 4 0 7 3 5a4 4 0 0 1 4 0c3 2 7-1 3-5-2-2-3-4-5-4Z" />
+        <g fill="currentColor" stroke="none">
+            <path d="M20 20c-2.8 0-4.5 2.3-6.7 4.3-1.8 1.7-2.5 3.6-1.5 5.3 1 1.8 3.2 2 5.3 1.2 1.1-.4 2-.7 2.9-.7s1.8.3 2.9.7c2.1.8 4.3.6 5.3-1.2 1-1.7.3-3.6-1.5-5.3C24.5 22.3 22.8 20 20 20Z" />
+            <ellipse cx="10.7" cy="18.4" rx="2.8" ry="3.7" transform="rotate(-28 10.7 18.4)" />
+            <ellipse cx="16.4" cy="12.7" rx="2.8" ry="3.8" transform="rotate(-12 16.4 12.7)" />
+            <ellipse cx="23.6" cy="12.7" rx="2.8" ry="3.8" transform="rotate(12 23.6 12.7)" />
+            <ellipse cx="29.3" cy="18.4" rx="2.8" ry="3.7" transform="rotate(28 29.3 18.4)" />
+        </g>
         break;
 }
 </svg>

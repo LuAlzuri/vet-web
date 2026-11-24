@@ -1,18 +1,33 @@
 @model VetWeb.Dtos.CuentaDto
 <div class="modal-header"><h2 class="modal-title fs-5">@(Model.Id == 0 ? "Agregar cuenta o perfil" : "Editar cuenta")</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
 <form asp-action="Guardar" asp-controller="@ViewBag.Controlador" method="post" data-crud>
+@if (ViewBag.EsVeterinario == true && ViewBag.TienePerfilTutor == true) { <input type="hidden" data-datos-cliente /> }
 <div class="modal-body">
 <div data-error class="alert alert-danger d-none" role="alert"></div><div asp-validation-summary="ModelOnly" class="text-danger"></div><input asp-for="Id" type="hidden" />
+@if (ViewBag.EsVeterinario == true && Model.Id == 0)
+{
+    <div class="form-check mb-3"><input asp-for="VincularExistente" class="form-check-input" data-vincular-cliente /><label asp-for="VincularExistente" class="form-check-label">Seleccionar un cliente existente</label></div>
+    <div class="mb-3" data-selector-cliente hidden>
+        <label asp-for="ClienteId" class="form-label">Cliente</label>
+        <select asp-for="ClienteId" class="form-select" data-cliente><option value="">Seleccionar cliente</option>
+        @foreach (var cliente in (IEnumerable<VetWeb.Dtos.CuentaDto>)ViewBag.Clientes)
+        {
+            <option value="@cliente.Id" data-nombre="@cliente.Nombre" data-apellido="@cliente.Apellido" data-email="@cliente.Email" data-admin="@(cliente.EsAdministrador == true ? "true" : "false")">@cliente.Apellido, @cliente.Nombre — @cliente.Email</option>
+        }
+        </select>
+        <div class="form-text">Se conservan los datos y la contraseña del cliente.</div>
+    </div>
+}
 <div class="mb-3"><label asp-for="Nombre" class="form-label"></label><input asp-for="Nombre" class="form-control" /><span asp-validation-for="Nombre" class="text-danger"></span></div>
 <div class="mb-3"><label asp-for="Apellido" class="form-label"></label><input asp-for="Apellido" class="form-control" /><span asp-validation-for="Apellido" class="text-danger"></span></div>
 <div class="mb-3"><label asp-for="Email" class="form-label"></label><input asp-for="Email" class="form-control" /><span asp-validation-for="Email" class="text-danger"></span></div>
 @if (ViewBag.EsVeterinario) { <div class="mb-3"><label asp-for="Matricula" class="form-label"></label><input asp-for="Matricula" class="form-control" /><span asp-validation-for="Matricula" class="text-danger"></span></div> }
 @if (Model.Id == 0) {
-<div class="mb-3"><label asp-for="Password" class="form-label"></label><div class="input-group"><input asp-for="Password" class="form-control" autocomplete="new-password" /><partial name="_MostrarPassword" model='@("Password")' /></div><span asp-validation-for="Password" class="text-danger"></span><div class="form-text">Para una cuenta nueva: 8 caracteres, mayúscula, minúscula, número y símbolo.</div></div>
-<div class="form-check"><input asp-for="VincularExistente" class="form-check-input" /><label asp-for="VincularExistente" class="form-check-label"></label></div>
+<div class="mb-3" data-password-inicial><label asp-for="Password" class="form-label"></label><div class="input-group"><input asp-for="Password" class="form-control" autocomplete="new-password" /><partial name="_MostrarPassword" model='@("Password")' /></div><span asp-validation-for="Password" class="text-danger"></span><div class="form-text">Para una cuenta nueva: 8 caracteres, mayúscula, minúscula, número y símbolo.</div></div>
+@if (ViewBag.EsVeterinario != true) { <div class="form-check"><input asp-for="VincularExistente" class="form-check-input" /><label asp-for="VincularExistente" class="form-check-label"></label></div> }
 <p class="form-text">Al vincular otro perfil se conservan nombre, apellido y contraseña de la cuenta existente.</p>
 } else { <p class="form-text">Editar estos datos afecta también a los otros perfiles de esta cuenta. La contraseña no se modifica.</p> }
-@if (Model.Id != 0 && ViewBag.EsVeterinario == true)
+@if (ViewBag.EsVeterinario == true)
 {
     <div class="border-top pt-3">
         @if (ViewBag.TienePerfilTutor == true)
@@ -21,9 +36,10 @@
         }
         else
         {
-            <button type="button" class="btn btn-outline-secondary"
-                    data-form-url="@Url.Action("ObtenerCliente", "Veterinarios", new { id = Model.Id })">¿Es cliente?</button>
+            <div class="form-check mb-3" data-nuevo-cliente><input asp-for="EsCliente" class="form-check-input" data-es-cliente /><label asp-for="EsCliente" class="form-check-label"></label></div>
+            <div class="mb-3" data-telefono-cliente hidden><label asp-for="Telefono" class="form-label"></label><input asp-for="Telefono" class="form-control" /><span asp-validation-for="Telefono" class="text-danger"></span></div>
         }
+        <div class="form-check"><input name="EsAdministrador" id="EsAdministrador" type="checkbox" value="true" checked="@(Model.EsAdministrador == true)" class="form-check-input" /><input type="hidden" name="EsAdministrador" value="false" /><label asp-for="EsAdministrador" class="form-check-label"></label></div>
     </div>
 }
 </div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Guardar</button></div>

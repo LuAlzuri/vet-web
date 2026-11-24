@@ -26,7 +26,7 @@ public class VeterinariosController : Controller
     public async Task<IActionResult> ObtenerFormulario(int id = 0)
     {
         Preparar();
-        if (id == 0) return PartialView("~/Views/Shared/_FormularioCuenta.cshtml", new CuentaDto());
+        if (id == 0) return await FormularioCuenta(new CuentaDto());
         var dto = await _context.Veterinarios.Where(x => x.Id == id && x.Usuario.Activo)
             .Select(x => new CuentaDto { Id = x.Id, Nombre = x.Usuario.Nombre, Apellido = x.Usuario.Apellido, Email = x.Usuario.Email!, Matricula = x.Matricula, }).SingleOrDefaultAsync();
         return dto is null ? NotFound() : await FormularioCuenta(dto);
@@ -36,15 +36,29 @@ public class VeterinariosController : Controller
     {
         Preparar();
         if (!ModelState.IsValid) return await FormularioCuenta(dto);
-        await _cuentas.GuardarAsync(dto, true);
+        if (dto.Id == 0 && dto.VincularExistente && !dto.ClienteId.HasValue)
+            throw new InvalidOperationException("Seleccioná un cliente.");
+        await _cuentas.GuardarAsync(dto, true, _usuarios.GetUserId(User));
         return Json(new { success = true });
     }
 
     private async Task<IActionResult> FormularioCuenta(CuentaDto dto)
     {
+        Preparar();
+        ViewBag.Clientes = await _context.Tutores.Where(x => x.Usuario.Activo &&
+            !_context.Veterinarios.IgnoreQueryFilters().Any(v => v.UserId == x.UserId))
+            .OrderBy(x => x.Usuario.Apellido).Select(x => new CuentaDto {
+                Id = x.Id, Nombre = x.Usuario.Nombre, Apellido = x.Usuario.Apellido, Email = x.Usuario.Email!,
+                EsAdministrador = _context.UserRoles.Any(ur => ur.UserId == x.UserId && _context.Roles.Any(r => r.Id == ur.RoleId && r.Name == RolSesion.Administrador))
+            }).ToListAsync();
         if (dto.Id != 0)
+        {
             ViewBag.TienePerfilTutor = await _context.Veterinarios.AnyAsync(x => x.Id == dto.Id &&
                 _context.Tutores.IgnoreQueryFilters().Any(t => t.UserId == x.UserId));
+            var usuario = await _context.Veterinarios.Where(x => x.Id == dto.Id).Select(x => x.Usuario).SingleOrDefaultAsync();
+            if (usuario is not null && HttpMethods.IsGet(Request.Method))
+                dto.EsAdministrador = await _usuarios.IsInRoleAsync(usuario, RolSesion.Administrador);
+        }
         return PartialView("~/Views/Shared/_FormularioCuenta.cshtml", dto);
     }
     [HttpGet]

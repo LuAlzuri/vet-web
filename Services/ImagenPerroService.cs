@@ -1,10 +1,22 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using VetWeb.Models;
 
 namespace VetWeb.Services;
 
 public class ImagenPerroService
 {
+    public async Task<bool> QuitarAsync(VetWeb.Data.ApplicationDbContext db, int perroId)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+        var imagen = await db.Imagenes.SingleOrDefaultAsync(x => x.PerroId == perroId);
+        if (imagen is null) return false;
+        db.Imagenes.Remove(imagen);
+        await db.SaveChangesAsync();
+        await transaction.CommitAsync();
+        Eliminar(imagen.NombreArchivo);
+        return true;
+    }
     public const int MaximoBytes = 2 * 1024 * 1024;
     private readonly string _directorio;
     private readonly ILogger<ImagenPerroService> _logger;

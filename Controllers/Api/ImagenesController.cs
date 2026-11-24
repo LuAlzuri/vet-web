@@ -64,13 +64,6 @@ public class ImagenesController(
     [Authorize(Roles = "Veterinario")]
     public async Task<IActionResult> Eliminar(int perroId)
     {
-        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-        var imagen = await db.Imagenes.SingleOrDefaultAsync(x => x.PerroId == perroId);
-        if (imagen is null) return NotFound();
-        db.Imagenes.Remove(imagen);
-        await db.SaveChangesAsync();
-        await transaction.CommitAsync();
-        imagenes.Eliminar(imagen.NombreArchivo);
-        return NoContent();
+        return await imagenes.QuitarAsync(db, perroId) ? NoContent() : NotFound();
     }
 }

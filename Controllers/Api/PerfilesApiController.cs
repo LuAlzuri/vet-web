@@ -25,7 +25,7 @@ public abstract class PerfilesApiController(ApplicationDbContext db, CuentaServi
     public async Task<IActionResult> Crear(CuentaDto dto)
     {
         if (dto.Id != 0) return BadRequest();
-        var id = await cuentas.GuardarAsync(dto, EsVeterinario);
+        var id = await cuentas.GuardarAsync(dto, EsVeterinario, EsVeterinario ? usuarios.GetUserId(User) : null);
         return CreatedAtAction(nameof(Obtener), new { id }, await Consultar().SingleAsync(x => x.Id == id));
     }
     [HttpPut("{id:int}")]
@@ -33,7 +33,7 @@ public abstract class PerfilesApiController(ApplicationDbContext db, CuentaServi
     {
         if (dto.Id != 0 && dto.Id != id) return BadRequest();
         if (!await Consultar().AnyAsync(x => x.Id == id)) return NotFound();
-        dto.Id = id; await cuentas.GuardarAsync(dto, EsVeterinario); return NoContent();
+        dto.Id = id; await cuentas.GuardarAsync(dto, EsVeterinario, EsVeterinario ? usuarios.GetUserId(User) : null); return NoContent();
     }
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Eliminar(int id)
