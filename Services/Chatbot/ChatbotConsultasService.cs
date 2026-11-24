@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 using VetWeb.Dtos;
 
 namespace VetWeb.Services.Chatbot;
@@ -11,7 +12,7 @@ public sealed class ChatbotConsultasService(IChatbotProveedor proveedor, Chatbot
     {
         "Tutor" => ["cupos", "turnos", "perros-clinica", "clinica", "patologias", "atenciones"],
         "Veterinario" => ["cupos", "turnos", "perros-clinica", "clinica", "patologias", "atenciones", "tutores-faltas", "faltas", "vetos"],
-        RolSesion.Administrador => ["admin-servicios", "admin-estados", "admin-comparar", "admin-auditoria"],
+        RolSesion.Administrador => ["admin-servicios", "admin-estados", "admin-comparar", "admin-auditoria", "admin-errores"],
         _ => []
     };
 
@@ -61,6 +62,11 @@ public sealed class ChatbotConsultasService(IChatbotProveedor proveedor, Chatbot
             return new("Elegí la mascota o el tutor mediante las opciones de consulta.", true);
         if (consulta.Accion is "clinica" or "patologias" or "atenciones") consulta.Accion = "perros-clinica";
         if (consulta.Accion is "faltas" or "vetos") consulta.Accion = "tutores-faltas";
+        // Corrige el caso en que el modelo confunde una consulta explícita de errores con movimientos.
+        if (solicitud.RolActivo == RolSesion.Administrador && consulta.Accion == "admin-auditoria" &&
+            Regex.IsMatch(solicitud.Mensaje, @"\berror(?:es)?\s+(?:m[aá]s\s+(?:frecuentes?|repetidos?)|t[eé]cnicos?|registrados?|(?:de|en)\s+(?:la\s+)?auditor[ií]a)\b|\b(?:frecuencia|registro|ranking)\s+de\s+error(?:es)?\b",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            consulta.Accion = "admin-errores";
         var resultado = await ConsultarAsync(consulta, usuario, token);
         return new(resultado.Mensaje, true, Resultado: resultado);
     }
@@ -73,7 +79,7 @@ public sealed class ChatbotConsultasService(IChatbotProveedor proveedor, Chatbot
         if (consulta.CupoId.HasValue || consulta.Confirmacion is not null || consulta.PistasReserva is not null || consulta.ServicioIds is null || consulta.ServicioIds.Count != 0)
             throw new InvalidOperationException("Esta opción solo permite consultas de lectura.");
         token.ThrowIfCancellationRequested();
-        var resultado = await acciones.EjecutarAsync(consulta, usuario);
+        var resultado = await acciones.EjecutarAsync(consulta, usuario, token);
         return resultado with { Acciones = resultado.Acciones.Where(x => Permitidas(rol).Contains(x.Solicitud.Accion)).ToList() };
     }
 }

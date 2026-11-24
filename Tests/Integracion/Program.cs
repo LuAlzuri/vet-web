@@ -46,6 +46,9 @@ services.AddIdentityCore<ApplicationUser>(o => { o.User.RequireUniqueEmail = tru
 services.AddScoped<CuentaService>(); services.AddScoped<TurnoService>(); services.AddScoped<CatalogosFormularioService>();
 services.AddScoped<VetoService>();
 services.AddScoped<AuditoriaService>();
+var configErrores = new ConfigurationBuilder()
+    .AddInMemoryCollection(new Dictionary<string, string?> { ["ErrorLog:Path"] = Path.Combine(directorioErroresPrueba, "errores-.log") }).Build();
+services.AddSingleton(new ConsultaErroresService(configErrores, Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder().Environment));
 services.AddSingleton<VetWeb.Services.Chatbot.ChatbotReservasPendientes>();
 services.AddScoped<VetWeb.Services.Chatbot.ChatbotAdministradorService>();
 services.AddScoped<VetWeb.Services.Chatbot.ChatbotAccionesService>();
@@ -781,7 +784,7 @@ try
     await ChatbotPruebas.EjecutarAsync(demoVet, administrador, demoTutor, anon);
     await ChatbotConsultasPruebas.EjecutarAsync(provider, demoVet, administrador, demoTutor, anon);
     await ChatbotAccionesPruebas.EjecutarAsync(provider, demoVet, administrador, anon, Cliente, (c, e) => Ingresar(c, e, password), password);
-    await ChatbotAdministradorPruebas.EjecutarAsync(provider, administrador, demoVet, demoTutor, anon, tresRoles);
+    await ChatbotAdministradorPruebas.EjecutarAsync(provider, administrador, demoVet, demoTutor, anon, tresRoles, directorioErroresPrueba);
     var tokenCambioCatalogos = await Token(tresRoles, "/Identity/Cuenta/Salir");
     await tresRoles.PostAsync("/Cuenta/CambiarRol", new FormUrlEncodedContent(new Dictionary<string,string> { ["__RequestVerificationToken"] = tokenCambioCatalogos }));
     await ElegirRol(tresRoles, "Tutor");

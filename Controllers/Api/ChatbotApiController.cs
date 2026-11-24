@@ -21,9 +21,9 @@ public sealed class ChatbotApiController(ChatbotConsultasService consultas, Chat
         return Ok(await consultas.ConsultarAsync(solicitud, User, token));
     }
     [HttpPost("acciones"), Authorize(Roles = "Veterinario,Tutor,Administrador"), RequestSizeLimit(16384)]
-    public async Task<ActionResult<ChatbotAccionRespuesta>> Accion(ChatbotAccionSolicitud solicitud)
+    public async Task<ActionResult<ChatbotAccionRespuesta>> Accion(ChatbotAccionSolicitud solicitud, CancellationToken token)
     {
         Response.Headers.CacheControl = "no-store";
-        return Ok(await acciones.EjecutarAsync(solicitud, User));
+        return Ok(await acciones.EjecutarAsync(solicitud, User, token));
     }
 }
