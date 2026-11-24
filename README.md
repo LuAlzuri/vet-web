@@ -2,6 +2,12 @@
 
 Sistema web para gestionar clientes, perros, turnos y atenciones de peluquería canina. Incluye los roles Tutor, Veterinario y Administrador, con autenticación mediante ASP.NET Core Identity.
 
+## Versión online
+
+La aplicación está publicada en MonsterASP: [Acceder a VeteWeb](http://vetweb.runasp.net/).
+
+El acceso a las funciones del sistema requiere una cuenta proporcionada por la veterinaria.
+
 ## Stack y versiones
 
 | Componente | Versión |
