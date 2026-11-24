@@ -1,0 +1,68 @@
+using System.Net;
+using System.Text.Json;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+using VetWeb.Dtos;
+using VetWeb.Services.Chatbot;
+
+internal static class GeminiProveedorPruebas
+{
+    private sealed class Transporte(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> enviar) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => enviar(request, cancellationToken);
+    }
+
+    public static async Task EjecutarAsync()
+    {
+        static void Exigir(bool condicion, string mensaje) { if (!condicion) throw new Exception("Gemini: " + mensaje); }
+        var valores = new Dictionary<string, string?> { ["Gemini:ApiKey"] = "clave-ficticia", ["Gemini:Modelo"] = "gemini-3.1-flash-lite", ["Gemini:TimeoutSegundos"] = "30" };
+        var config = new ConfigurationBuilder().AddInMemoryCollection(valores).Build();
+        var solicitud = new ChatbotSolicitud { Mensaje = "¿Cómo solicito turno?", Historial = [new("user", "Hola"), new("assistant", "Hola, ¿en qué te ayudo?")] };
+        using var http = new HttpClient(new Transporte(async (request, token) =>
+        {
+            Exigir(request.RequestUri!.Host == "generativelanguage.googleapis.com" && request.RequestUri.AbsolutePath.EndsWith("gemini-3.1-flash-lite:generateContent"), "destino incorrecto");
+            Exigir(!request.RequestUri.Query.Contains("clave") && request.Headers.GetValues("x-goog-api-key").Single() == "clave-ficticia", "la clave no se envía por encabezado");
+            using var json = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(token));
+            var contenido = json.RootElement.GetProperty("contents");
+            Exigir(contenido.GetArrayLength() == 3 && contenido[1].GetProperty("role").GetString() == "model", "historial incorrecto");
+            Exigir(contenido[2].GetProperty("parts")[0].GetProperty("text").GetString() == solicitud.Mensaje, "mensaje duplicado o perdido");
+            Exigir(json.RootElement.GetProperty("systemInstruction").GetProperty("parts")[0].GetProperty("text").GetString()!.Contains("No tenés acceso a datos reales"), "faltan instrucciones del servidor");
+            Exigir(!json.RootElement.TryGetProperty("tools", out _), "se habilitaron herramientas en la conversación básica");
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("""{"candidates":[{"finishReason":"STOP","content":{"parts":[{"thought":true,"text":"Interno"},{"text":"Usá las acciones disponibles."}]}}]}""") };
+        }));
+        var proveedor = new GeminiChatbotProveedor(http, config, NullLogger<GeminiChatbotProveedor>.Instance);
+        var respuesta = await proveedor.ResponderAsync(solicitud, CancellationToken.None);
+        Exigir(respuesta.Conectado && respuesta.Mensaje == "Usá las acciones disponibles.", "no se extrajo el texto o se expuso razonamiento");
+
+        foreach (var (estado, cuerpo, esperado) in new[]
+        {
+            (HttpStatusCode.Forbidden, "clave-privada", "acceso"),
+            (HttpStatusCode.NotFound, "detalle-interno", "modelo"),
+            (HttpStatusCode.TooManyRequests, "detalle-interno", "límite"),
+            (HttpStatusCode.ServiceUnavailable, "detalle-interno", "disponible"),
+            (HttpStatusCode.OK, "no es json", "interpretar"),
+            (HttpStatusCode.OK, "{}", "utilizable"),
+            (HttpStatusCode.OK, """{"candidates":[{"finishReason":"SAFETY","content":{"parts":[{"text":"No mostrar"}]}}]}""", "utilizable")
+        })
+        {
+            using var transporte = new HttpClient(new Transporte((_, _) => Task.FromResult(new HttpResponseMessage(estado) { Content = new StringContent(cuerpo) })));
+            var resultado = await new GeminiChatbotProveedor(transporte, config, NullLogger<GeminiChatbotProveedor>.Instance).ResponderAsync(solicitud, CancellationToken.None);
+            Exigir(!resultado.Conectado && resultado.Mensaje.Contains(esperado) && !resultado.Mensaje.Contains("clave-privada") && !resultado.Mensaje.Contains("detalle-interno"), "manejo de error incorrecto");
+        }
+        foreach (var error in new Exception[] { new HttpRequestException("secreto"), new TaskCanceledException() })
+        {
+            using var transporte = new HttpClient(new Transporte((_, _) => Task.FromException<HttpResponseMessage>(error)));
+            var resultado = await new GeminiChatbotProveedor(transporte, config, NullLogger<GeminiChatbotProveedor>.Instance).ResponderAsync(solicitud, CancellationToken.None);
+            Exigir(!resultado.Conectado && !resultado.Mensaje.Contains("secreto"), "no se controló la conexión o el timeout");
+        }
+        using var cancelacion = new CancellationTokenSource();
+        cancelacion.Cancel();
+        try { await proveedor.ResponderAsync(solicitud, cancelacion.Token); throw new Exception("No se propagó la cancelación del usuario."); }
+        catch (OperationCanceledException) { }
+        config["Gemini:Modelo"] = "https://otro-destino.invalid";
+        Exigir(!(await proveedor.ResponderAsync(solicitud, CancellationToken.None)).Conectado, "se admitió un destino arbitrario");
+        config["Gemini:ApiKey"] = "";
+        Exigir(!(await proveedor.ResponderAsync(solicitud, CancellationToken.None)).Conectado, "sin clave se hizo una llamada");
+        Console.WriteLine("Gemini: solicitud REST, historial, instrucciones, clave privada, texto, bloqueo, errores, timeout y cancelación verificados con transporte simulado.");
+    }
+}

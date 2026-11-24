@@ -108,4 +108,6 @@ Las pruebas crean y eliminan una base temporal; requieren permiso para crear bas
 
 ## Documentación adicional
 
+El chat escrito se conecta a Gemini configurando `Gemini:ApiKey`, `Gemini:Modelo` y `Gemini:TimeoutSegundos` en secretos de usuario. Para verificarlo: `dotnet run --project VetWeb.csproj --launch-profile http -- --probar-gemini`. Sin clave, las acciones guiadas siguen funcionando. Ver la guía del asistente para el alcance y la configuración.
+
 [API](docs/API.md) · [Modelo y DER](docs/DER.md) · [Diseño visual](docs/DISENO_VISUAL.md) · [Asistente de chat](docs/CHATBOT.md)
