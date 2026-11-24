@@ -14,7 +14,7 @@
 .chatbot-user { background: #d8f4f2; }
 .chatbot-estado { margin: .4rem 1rem; font-size: .85rem; }
 .chatbot-formulario { padding: .7rem 1rem; border-top: 1px solid #d8f4f2; }
-.chatbot-formulario label { display: block; margin-bottom: .45rem; font-size: .85rem; }
+.chatbot-formulario label { display: block; margin-bottom: .45rem; font-size: 1rem; font-weight: 600; }
 .chatbot-acciones { display: flex; justify-content: space-between; gap: .5rem; margin-top: .6rem; }
 @media (max-width: 575px) {
     .chatbot { right: 1rem; bottom: 5.5rem; }

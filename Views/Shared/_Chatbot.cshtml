@@ -33,7 +33,7 @@
             <form class="chatbot-formulario">
                 @Html.AntiForgeryToken()
                 <label for="chatbot-mensaje">Tu consulta</label>
-                <textarea id="chatbot-mensaje" class="form-control" rows="2" maxlength="2000" required placeholder="Escribí tu mensaje"></textarea>
+                <textarea id="chatbot-mensaje" class="form-control" rows="2" maxlength="2000" enterkeyhint="send" required placeholder="Escribí tu mensaje"></textarea>
                 <div class="chatbot-acciones">
                     <button type="button" class="btn btn-outline-secondary btn-sm" data-chatbot-limpiar>Nueva conversación</button>
                     <button type="submit" class="btn btn-primary">Enviar</button>
