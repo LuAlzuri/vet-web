@@ -1,8 +1,8 @@
 // Mensajes compartidos. Usar text evita interpretar como HTML los mensajes del servidor.
 window.VetAlertas = {
-    confirmar: async texto => {
+    confirmar: async (texto, target = document.body) => {
         const resultado = await Swal.fire({
-            title: 'Confirmar operación', text: texto, icon: 'question',
+            title: 'Confirmar operación', text: texto, icon: 'question', target,
             showCancelButton: true, confirmButtonText: 'Confirmar', cancelButtonText: 'Cancelar',
             focusCancel: true, reverseButtons: true, heightAuto: false,
             buttonsStyling: false,

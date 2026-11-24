@@ -24,9 +24,48 @@
     }
     contenido.addEventListener('change', event => {
         if (event.target.matches('select[data-catalogo-otro]')) actualizarCatalogo(event.target);
+        if (event.target.matches('[data-vincular-cliente], [data-cliente], [data-es-cliente]'))
+            actualizarCuenta(event.target.matches('[data-vincular-cliente], [data-cliente]'));
     });
+    function actualizarCuenta(cambioCliente = false) {
+        if (contenido.querySelector('[data-datos-cliente]')) {
+            ['Nombre', 'Apellido', 'Email'].forEach(campo => contenido.querySelector(`[name="${campo}"]`).readOnly = true);
+        }
+        const vincular = contenido.querySelector('[data-vincular-cliente]');
+        const selector = contenido.querySelector('[data-cliente]');
+        const usarCliente = vincular?.checked === true;
+        if (selector) {
+            selector.closest('[data-selector-cliente]').hidden = !usarCliente;
+            selector.disabled = !usarCliente;
+            selector.required = usarCliente;
+            const opcion = selector.selectedOptions[0];
+            if (usarCliente && cambioCliente) contenido.querySelector('[name="EsAdministrador"][type="checkbox"]').checked = opcion?.dataset.admin === 'true';
+            ['Nombre', 'Apellido', 'Email'].forEach(campo => {
+                const input = contenido.querySelector(`[name="${campo}"]`);
+                if (usarCliente) input.value = opcion?.dataset[campo.toLowerCase()] || '';
+                else if (input.readOnly) input.value = '';
+                input.readOnly = usarCliente;
+            });
+            const password = contenido.querySelector('[data-password-inicial]');
+            if (password) {
+                password.hidden = usarCliente;
+                password.querySelector('input').disabled = usarCliente;
+                if (usarCliente) password.querySelector('input').value = '';
+            }
+        }
+        const esCliente = contenido.querySelector('[data-es-cliente]');
+        if (esCliente) {
+            esCliente.closest('[data-nuevo-cliente]').hidden = usarCliente;
+            esCliente.disabled = usarCliente;
+            const telefono = contenido.querySelector('[data-telefono-cliente]');
+            telefono.hidden = usarCliente || !esCliente.checked;
+            telefono.querySelector('input').disabled = telefono.hidden;
+            telefono.querySelector('input').required = !telefono.hidden;
+        }
+    }
     function preparar(html) {
         contenido.innerHTML = html;
+        actualizarCuenta();
         contenido.querySelectorAll('select[data-catalogo-otro]').forEach(actualizarCatalogo);
         const form = contenido.querySelector('form');
         if (form && window.jQuery?.validator?.unobtrusive) $.validator.unobtrusive.parse(form);
@@ -59,7 +98,8 @@
                 const response = await respuesta(await fetch(boton.dataset.formUrl, { headers }));
                 preparar(await response.text()); modal.show();
             } else {
-                if (!await VetAlertas.confirmar(boton.dataset.confirm || '¿Confirmás esta operación?')) return;
+                const destinoAlerta = boton.closest('.modal') || document.body;
+                if (!await VetAlertas.confirmar(boton.dataset.confirm || '¿Confirmás esta operación?', destinoAlerta)) return;
                 const datos = new FormData(document.getElementById('tokenCrud'));
                 const response = await respuesta(await fetch(boton.dataset.deleteUrl, { method: 'POST', headers, body: datos }));
                 const resultado = await response.json();

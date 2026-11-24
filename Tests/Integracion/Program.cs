@@ -336,6 +336,17 @@ try
     }
     Verificar((await propietarioFoto.GetAsync("/Perros/Foto?id=" + perroFoto)).StatusCode == HttpStatusCode.NotFound
         && Directory.GetFiles(directorioFotosPrueba).Length == 0, "Quedó una referencia o un archivo tras quitar la imagen.");
+    using (var recarga = await SubirFoto(perroFoto, pngPrueba, "foto-web.png"))
+        Verificar(recarga.IsSuccessStatusCode, "No se pudo preparar la foto para quitarla desde la web.");
+    var editarFotoWeb = await vet.GetStringAsync("/Perros/ObtenerFormulario?id=" + perroFoto);
+    Verificar(editarFotoWeb.Contains("Quitar foto") && editarFotoWeb.Contains("data-confirm="), "Falta quitar foto con confirmación.");
+    var tokenPropietario = await Token(propietarioFoto, "/Identity/Cuenta/Salir");
+    using var quitarComoTutor = await propietarioFoto.PostAsync("/Perros/QuitarFoto?id=" + perroFoto,
+        new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = tokenPropietario }));
+    Verificar(quitarComoTutor.StatusCode == HttpStatusCode.Redirect, "Tutor pudo quitar una foto desde la web.");
+    await Exito("/Perros/QuitarFoto?id=" + perroFoto, new());
+    Verificar((await propietarioFoto.GetAsync("/Perros/Foto?id=" + perroFoto)).StatusCode == HttpStatusCode.NotFound
+        && Directory.GetFiles(directorioFotosPrueba).Length == 0, "El borrado web dejó el archivo o la referencia.");
     await Exito("/PerrosPatologias/Guardar", new() { ["PerroId"] = perroHttp.ToString(), ["PatologiaId"] = patologiaHttp.ToString(), ["Observacion"] = "Observación de prueba" });
     await Exito("/PerrosPatologias/Guardar", new() { ["EsEdicion"] = "true", ["PerroId"] = perroHttp.ToString(), ["PatologiaId"] = patologiaHttp.ToString(), ["Controlado"] = "true" });
     await Exito($"/PerrosPatologias/Eliminar?perroId={perroHttp}&patologiaId={patologiaHttp}", new());
@@ -819,6 +830,46 @@ try
         && (await anon.GetAsync("/api/auditoria/errores")).StatusCode == HttpStatusCode.Unauthorized,
         "El registro de errores es accesible sin Administrador activo.");
     Console.WriteLine("Auditoría de errores: tarjetas, formato Serilog, filtro por fecha y permisos verificados.");
+    await PerfilesAdministracionPruebas.EjecutarAsync(provider, administrador, vet, tokenAdmin,
+        await Token(vet, "/Tutores/ObtenerFormulario"), password);
+    foreach (var (emailCuenta, rolCuenta) in new[]
+    {
+        ("admin@prueba.invalid", "Administrador"),
+        ("vet@prueba.invalid", "Veterinario"),
+        ("alta-vet@prueba.invalid", "Tutor")
+    })
+    {
+        using var cuentaCambio = Cliente();
+        await Ingresar(cuentaCambio, emailCuenta);
+        if (rolCuenta == "Tutor") await ElegirRol(cuentaCambio, rolCuenta);
+        var tokenPassword = await Token(cuentaCambio, "/Cuenta/CambiarPassword");
+        var nuevaPassword = "Nueva1!" + Guid.NewGuid().ToString("N");
+        async Task<HttpResponseMessage> CambiarClave(string actual, string nueva, string confirmacion, bool conToken = true)
+        {
+            var campos = new Dictionary<string, string>
+                { ["Actual"] = actual, ["Nueva"] = nueva, ["Confirmacion"] = confirmacion };
+            if (conToken) campos["__RequestVerificationToken"] = tokenPassword;
+            return await cuentaCambio.PostAsync("/Cuenta/CambiarPassword", new FormUrlEncodedContent(campos));
+        }
+        using var sinCsrf = await CambiarClave(password, nuevaPassword, nuevaPassword, false);
+        Verificar(sinCsrf.StatusCode == HttpStatusCode.BadRequest, "Se cambió la contraseña sin antifalsificación.");
+        using var actualIncorrecta = await CambiarClave("Incorrecta1!", nuevaPassword, nuevaPassword);
+        Verificar(actualIncorrecta.StatusCode == HttpStatusCode.OK, "No se mostró la validación de la contraseña actual.");
+        using var noCoincide = await CambiarClave(password, nuevaPassword, "Distinta1!");
+        Verificar(noCoincide.StatusCode == HttpStatusCode.OK, "No se validó la confirmación.");
+        using var cambioCorrecto = await CambiarClave(password, nuevaPassword, nuevaPassword);
+        Verificar(cambioCorrecto.StatusCode == HttpStatusCode.Redirect, "Falló el cambio de contraseña.");
+        var inicioDespues = await cuentaCambio.GetStringAsync("/");
+        Verificar(inicioDespues.Contains("Rol activo: " + rolCuenta), "Cambiar la contraseña perdió el rol activo.");
+        await using var scope = provider.CreateAsyncScope();
+        var usuarios = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var usuarioCambio = (await usuarios.FindByEmailAsync(emailCuenta))!;
+        Verificar(await usuarios.CheckPasswordAsync(usuarioCambio, nuevaPassword)
+            && !await usuarios.CheckPasswordAsync(usuarioCambio, password), "Identity no actualizó la contraseña correctamente.");
+        using var reingresoCambio = Cliente();
+        await Ingresar(reingresoCambio, emailCuenta, nuevaPassword);
+    }
+    Console.WriteLine("Cierre funcional: cambio de contraseña en los tres roles, conservación del rol y quitar foto desde la web verificados.");
 }
 finally
 {

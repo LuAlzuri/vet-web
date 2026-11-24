@@ -16,6 +16,10 @@
         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="menuCuenta">
             <li><span class="dropdown-item-text text-muted">Rol activo: @(activo ?? "Pendiente de elección")</span></li>
             <li><hr class="dropdown-divider" /></li>
+            @if (activo is not null)
+            {
+                <li><a class="dropdown-item" asp-area="" asp-controller="Cuenta" asp-action="CambiarPassword">Cambiar contraseña</a></li>
+            }
             @if (roles.Count > 1 && activo is not null)
             {
                 <li>

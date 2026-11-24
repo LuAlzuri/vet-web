@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using VetWeb.Models;
 using VetWeb.Services;
+using VetWeb.Dtos;
 
 namespace VetWeb.Controllers;
 
@@ -15,6 +16,32 @@ public class CuentaController : Controller
     private readonly SignInManager<ApplicationUser> _sesiones;
     public CuentaController(UserManager<ApplicationUser> usuarios, SignInManager<ApplicationUser> sesiones)
     { _usuarios = usuarios; _sesiones = sesiones; }
+
+    [HttpGet]
+    public IActionResult CambiarPassword() => View(new CambiarPasswordDto());
+
+    [HttpPost]
+    public async Task<IActionResult> CambiarPassword(CambiarPasswordDto dto)
+    {
+        if (!ModelState.IsValid) return View(dto);
+        var usuario = await _usuarios.GetUserAsync(User);
+        if (usuario is null || !usuario.Activo) return Challenge();
+        var resultado = await _usuarios.ChangePasswordAsync(usuario, dto.Actual, dto.Nueva);
+        if (!resultado.Succeeded)
+        {
+            foreach (var error in resultado.Errors)
+                ModelState.AddModelError(string.Empty, error.Code == "PasswordMismatch"
+                    ? "La contraseña actual es incorrecta."
+                    : "La nueva contraseña debe tener al menos 8 caracteres, mayúscula, minúscula, número y símbolo.");
+            return View(dto);
+        }
+        var autenticacion = await HttpContext.AuthenticateAsync(IdentityConstants.ApplicationScheme);
+        var rol = User.FindFirst(RolSesion.Claim)?.Value;
+        await _sesiones.SignInWithClaimsAsync(usuario, autenticacion.Properties ?? new AuthenticationProperties(),
+            rol is null ? Array.Empty<Claim>() : new[] { new Claim(RolSesion.Claim, rol) });
+        TempData["PasswordActualizada"] = true;
+        return RedirectToAction(nameof(CambiarPassword));
+    }
 
     [HttpPost]
     public async Task<IActionResult> CambiarRol()

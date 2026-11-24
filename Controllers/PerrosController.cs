@@ -84,6 +84,13 @@ public class PerrosController : Controller
         return Json(new { success = true });
     }
     [HttpPost, Authorize(Roles = "Veterinario")]
+    public async Task<IActionResult> QuitarFoto(int id)
+    {
+        if (!await _imagenes.QuitarAsync(_context, id)) return NotFound();
+        return Json(new { success = true });
+    }
+
+    [HttpPost, Authorize(Roles = "Veterinario")]
     public async Task<IActionResult> Eliminar(int id)
     {
         if (!await _perros.EliminarAsync(id)) return NotFound();

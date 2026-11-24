@@ -17,6 +17,13 @@ public class CuentaDto
     public string? Password { get; set; }
     [Display(Name = "Vincular una cuenta existente con este correo")]
     public bool VincularExistente { get; set; }
+    public int? ClienteId { get; set; }
+    [Display(Name = "¿Es cliente?")]
+    public bool EsCliente { get; set; }
+    [Display(Name = "¿Es administrador?")]
+    public bool? EsAdministrador { get; set; }
+    [Display(Name = "Teléfono de contacto"), StringLength(30), Phone(ErrorMessage = "Ingresá un teléfono válido.")]
+    public string? Telefono { get; set; }
     [Range(1, 99999, ErrorMessage = "La matrícula debe estar entre 1 y 99999.")]
     [Display(Name = "Matrícula")]
     public int? Matricula { get; set; }

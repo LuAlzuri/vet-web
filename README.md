@@ -76,7 +76,7 @@ La migración `AgregarRolAdministrador` agrega el rol a Identity. Una vez aplica
 dotnet run --project VetWeb.csproj --launch-profile http -- --crear-administrador
 ```
 
-El comando crea la primera cuenta administrativa y termina. Después se pueden quitar esos secretos de inicialización. Las cuentas administrativas quedan protegidas frente a ediciones, vinculaciones y bajas desde los formularios de perfiles.
+El comando crea la primera cuenta administrativa y termina. Después se pueden quitar esos secretos de inicialización. Desde la gestión de veterinarios, Administración puede asignar o retirar el rol Administrador mediante **¿Es administrador?**. Las cuentas administrativas permanecen protegidas frente a operaciones realizadas desde el rol Veterinario.
 
 ## Pantallas y permisos
 
@@ -101,9 +101,15 @@ Los endpoints usan Listado, ObtenerFormulario, Guardar y Eliminar, o las accione
 
 ApplicationUser.Activo gobierna el acceso completo. Dar de baja un tutor o veterinario desactiva su cuenta para todos sus roles y marca como eliminado el perfil seleccionado. El ingreso rechaza cuentas inactivas y el middleware cierra sus sesiones en las siguientes solicitudes. La baja no elimina usuarios ni datos históricos.
 
-No se puede dar de baja la cuenta propia, el último veterinario activo ni una cuenta con turnos activos pendientes de resolver. No hay pantalla de restauración en esta entrega. Al crear otro perfil para una cuenta existente, marcar Vincular una cuenta existente e indicar su correo: se conservan sus datos y contraseña y se agrega el rol y perfil correspondiente. Editar nombre, apellido o correo afecta la cuenta compartida por todos sus perfiles. La edición no cambia contraseñas.
+No se puede dar de baja la cuenta propia, el último veterinario activo ni una cuenta con turnos activos pendientes de resolver. No hay pantalla de restauración en esta entrega. Al agregar un veterinario, **Seleccionar un cliente existente** muestra los tutores activos que todavía no tienen perfil veterinario: sus datos se completan y bloquean, se conserva la contraseña y se agrega la matrícula. La selección usa el ID del tutor; el servidor no acepta cambios de sus datos mediante este formulario. Los datos personales de un veterinario que ya es cliente también permanecen bloqueados en esta pantalla. Al crear un perfil desde Tutores sigue disponible la vinculación por correo.
+
+**¿Es cliente?** permite crear el perfil Tutor junto con el veterinario y exige un teléfono de contacto; también está disponible al editar un veterinario que todavía no sea cliente. **¿Es administrador?** agrega el rol a la misma cuenta de Identity. La operación completa se guarda en una transacción. Un administrador no puede darse de baja ni retirarse su propio rol; para quitar el rol o desactivar otra cuenta administrativa siempre debe quedar al menos un administrador activo. Estas operaciones requieren el rol Administrador activo y no cambian la contraseña.
 
 Las cuentas nuevas exigen contraseña inicial de al menos 8 caracteres, con mayúscula, minúscula, número y símbolo. Identity guarda un hash. No se incluyen contraseñas operativas en el repositorio. El bloqueo por intentos fallidos está configurado en cinco intentos durante cinco minutos.
+
+Cada usuario puede cambiar su propia contraseña desde el menú de su nombre, en **Cambiar contraseña**. Se exige la contraseña actual y confirmar la nueva; la sesión conserva el rol activo. Los tres campos permiten mostrar u ocultar la contraseña.
+
+En **Perros → Editar**, el veterinario puede quitar la foto actual mediante confirmación con SweetAlert. Se elimina la referencia y el archivo privado, sin modificar los demás datos del perro. No requiere una nueva migración.
 
 ## Circuito de turnos
 
