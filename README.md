@@ -8,6 +8,15 @@ La aplicación está publicada en MonsterASP: [Acceder a VeteWeb](http://vetweb.
 
 El acceso a las funciones del sistema requiere una cuenta proporcionada por la veterinaria.
 
+## Funcionalidades principales
+
+- **Tutor:** consulta sus mascotas, su historial y la disponibilidad; solicita y cancela sus turnos.
+- **Veterinario:** gestiona pacientes, tutores, cupos y atenciones de los turnos asignados o sin profesional especificado.
+- **Administrador:** gestiona veterinarios y roles, consulta auditoría y genera informes PDF.
+- **Asistente:** ofrece consultas por texto y acciones guiadas según el rol activo, con confirmación antes de guardar solicitudes de turno.
+
+Las cuentas con varios roles eligen uno para trabajar; los permisos corresponden al rol activo de la sesión.
+
 ## Stack y versiones
 
 | Componente | Versión |
