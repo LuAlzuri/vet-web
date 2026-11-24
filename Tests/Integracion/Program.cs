@@ -828,15 +828,18 @@ try
     await File.WriteAllLinesAsync(Path.Combine(directorioErroresPrueba, "errores-20010203.log"), new[]
     {
         """{"Timestamp":"2001-02-03T04:05:06Z","Level":"Error","MessageTemplate":"Evento de prueba","Exception":"Interno de prueba","Properties":{"Metodo":"GET","Ruta":"/api/prueba","IdSolicitud":"prueba-123"}}""",
+        """{"Timestamp":"2001-02-03T05:01:00Z","Level":"Error","MessageTemplate":"Gemini rechazó una consulta. Código HTTP: {Estado}","Properties":{"Estado":503,"SourceContext":"VetWeb.Services.Chatbot.GeminiChatbotProveedor"}}""",
         """{"Timestamp":"2001-02-03T06:00:00Z","Level":"Warning","MessageTemplate":"Aviso descartado"}""",
         "{"
     });
     const string fechaErrores = "?desde=2001-02-03&hasta=2001-02-03";
     var listaErrores = await administrador.GetFromJsonAsync<List<ErrorLogRespuesta>>("/api/auditoria/errores" + fechaErrores);
-    Verificar(listaErrores?.Count == 1 && listaErrores[0].Ruta == "/api/prueba" && listaErrores[0].IdSolicitud == "prueba-123",
+    Verificar(listaErrores?.Count == 2 && listaErrores[1].Ruta == "/api/prueba" && listaErrores[1].IdSolicitud == "prueba-123"
+        && listaErrores[0].Mensaje == "Gemini rechazó una consulta. Código HTTP: 503",
         "El lector de errores no interpretó correctamente el formato de Serilog.");
     var pantallaErrores = await administrador.GetStringAsync("/Auditoria/Errores" + fechaErrores);
-    Verificar(pantallaErrores.Contains("Evento de prueba") && !pantallaErrores.Contains("Interno de prueba"),
+    Verificar(pantallaErrores.Contains("Evento de prueba") && pantallaErrores.Contains("HTTP: 503")
+        && !pantallaErrores.Contains("Interno de prueba"),
         "La pantalla no muestra el evento o expone la excepción interna.");
     Verificar((await vet.GetAsync("/api/auditoria/errores")).StatusCode == HttpStatusCode.Forbidden
         && (await anon.GetAsync("/api/auditoria/errores")).StatusCode == HttpStatusCode.Unauthorized,
