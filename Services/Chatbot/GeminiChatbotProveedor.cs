@@ -10,6 +10,7 @@ public sealed class GeminiChatbotProveedor(HttpClient http, IConfiguration confi
     ILogger<GeminiChatbotProveedor> logger) : IChatbotProveedor
 {
     internal const string MensajeErrorHttp = "Gemini rechazó una consulta. Código HTTP: {Estado}";
+    internal const string MensajeErrorHttpConEstado = MensajeErrorHttp + ". Estado de Google: {EstadoGoogle}";
     private static readonly JsonSerializerOptions OpcionesReserva = new(JsonSerializerDefaults.Web)
     {
         UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow
@@ -112,7 +113,8 @@ public sealed class GeminiChatbotProveedor(HttpClient http, IConfiguration confi
             if (!respuesta.IsSuccessStatusCode)
             {
                 // No registrar claves, conversaciones ni el cuerpo de error del proveedor.
-                logger.LogError(MensajeErrorHttp, (int)respuesta.StatusCode);
+                var estadoGoogle = await LeerEstadoGoogleAsync(respuesta, espera.Token);
+                logger.LogError(MensajeErrorHttpConEstado, (int)respuesta.StatusCode, estadoGoogle);
                 return Fallo(respuesta.StatusCode switch
                 {
                     HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => "Gemini rechazó el acceso. Revisá la clave y los permisos del proyecto en el servidor.",
@@ -173,6 +175,42 @@ public sealed class GeminiChatbotProveedor(HttpClient http, IConfiguration confi
         {
             logger.LogError("Gemini devolvió una respuesta inválida.");
             return Fallo("No se pudo interpretar la respuesta de Gemini. Intentá nuevamente.");
+        }
+    }
+
+    internal static bool EsEstadoGoogle(string? estado) => estado is
+        "CANCELLED" or "UNKNOWN" or "INVALID_ARGUMENT" or "DEADLINE_EXCEEDED" or "NOT_FOUND" or "ALREADY_EXISTS"
+        or "PERMISSION_DENIED" or "RESOURCE_EXHAUSTED" or "FAILED_PRECONDITION" or "ABORTED" or "OUT_OF_RANGE"
+        or "UNIMPLEMENTED" or "INTERNAL" or "UNAVAILABLE" or "DATA_LOSS" or "UNAUTHENTICATED";
+
+    private static async Task<string?> LeerEstadoGoogleAsync(HttpResponseMessage respuesta, CancellationToken token)
+    {
+        const int limite = 8 * 1024;
+        if (respuesta.Content.Headers.ContentLength > limite) return null;
+
+        try
+        {
+            // Solo se conserva un estado conocido si el código del cuerpo coincide con el HTTP.
+            await using var cuerpo = await respuesta.Content.ReadAsStreamAsync(token);
+            var buffer = new byte[limite + 1];
+            var leidos = await cuerpo.ReadAtLeastAsync(buffer, buffer.Length, false, token);
+            if (leidos == 0 || leidos > limite) return null;
+
+            using var json = JsonDocument.Parse(buffer.AsMemory(0, leidos));
+            if (json.RootElement.ValueKind != JsonValueKind.Object ||
+                !json.RootElement.TryGetProperty("error", out var error) || error.ValueKind != JsonValueKind.Object ||
+                !error.TryGetProperty("code", out var codigo) || codigo.ValueKind != JsonValueKind.Number ||
+                !codigo.TryGetInt32(out var numero) || numero != (int)respuesta.StatusCode ||
+                !error.TryGetProperty("status", out var estado) || estado.ValueKind != JsonValueKind.String)
+                return null;
+
+            var valor = estado.GetString();
+            return EsEstadoGoogle(valor) ? valor : null;
+        }
+        catch (Exception error) when (error is JsonException or IOException or HttpRequestException)
+        {
+            // Obtener el diagnóstico es opcional. Se conserva el error HTTP original.
+            return null;
         }
     }
 

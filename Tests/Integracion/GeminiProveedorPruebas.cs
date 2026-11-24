@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using VetWeb.Dtos;
 using VetWeb.Services.Chatbot;
@@ -10,6 +11,18 @@ internal static class GeminiProveedorPruebas
     private sealed class Transporte(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> enviar) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => enviar(request, cancellationToken);
+    }
+
+    private sealed class Registro : ILogger<GeminiChatbotProveedor>
+    {
+        public IReadOnlyDictionary<string, object?> Campos { get; private set; } = new Dictionary<string, object?>();
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel nivel, EventId id, TState estado, Exception? error, Func<TState, Exception?, string> formato)
+        {
+            if (estado is IEnumerable<KeyValuePair<string, object?>> campos)
+                Campos = campos.ToDictionary();
+        }
     }
 
     public static async Task EjecutarAsync()
@@ -93,6 +106,25 @@ internal static class GeminiProveedorPruebas
             using var transporte = new HttpClient(new Transporte((_, _) => Task.FromResult(new HttpResponseMessage(estado) { Content = new StringContent(cuerpo) })));
             var resultado = await new GeminiChatbotProveedor(transporte, config, NullLogger<GeminiChatbotProveedor>.Instance).ResponderAsync(solicitud, CancellationToken.None);
             Exigir(!resultado.Conectado && resultado.Mensaje.Contains(esperado) && !resultado.Mensaje.Contains("clave-privada") && !resultado.Mensaje.Contains("detalle-interno"), "manejo de error incorrecto");
+        }
+        foreach (var (cuerpo, esperado) in new (string Cuerpo, string? Estado)[]
+        {
+            ("""{"error":{"code":503,"status":"UNAVAILABLE","message":"detalle-privado"}}""", "UNAVAILABLE"),
+            ("<html>detalle-privado</html>", null),
+            ("""{"error":{"code":503,"status":"detalle-privado"}}""", null),
+            ("""{"error":{"code":502,"status":"UNAVAILABLE"}}""", null),
+            ("""{"error":{"code":503,"status":"UNAVAILABLE"}}""" + new string(' ', 8192), null)
+        })
+        {
+            var registro = new Registro();
+            using var transporte = new HttpClient(new Transporte((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+            {
+                Content = new StringContent(cuerpo)
+            })));
+            var resultado = await new GeminiChatbotProveedor(transporte, config, registro).ResponderAsync(solicitud, CancellationToken.None);
+            Exigir(!resultado.Conectado && Equals(registro.Campos["Estado"], 503)
+                && Equals(registro.Campos["EstadoGoogle"], esperado)
+                && registro.Campos.Values.All(x => !Convert.ToString(x)!.Contains("detalle-privado")), "diagnóstico HTTP incorrecto o con contenido privado");
         }
         foreach (var error in new Exception[] { new HttpRequestException("secreto"), new TaskCanceledException() })
         {

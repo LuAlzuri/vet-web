@@ -829,16 +829,20 @@ try
     {
         """{"Timestamp":"2001-02-03T04:05:06Z","Level":"Error","MessageTemplate":"Evento de prueba","Exception":"Interno de prueba","Properties":{"Metodo":"GET","Ruta":"/api/prueba","IdSolicitud":"prueba-123"}}""",
         """{"Timestamp":"2001-02-03T05:01:00Z","Level":"Error","MessageTemplate":"Gemini rechazó una consulta. Código HTTP: {Estado}","Properties":{"Estado":503,"SourceContext":"VetWeb.Services.Chatbot.GeminiChatbotProveedor"}}""",
+        """{"Timestamp":"2001-02-03T05:02:00Z","Level":"Error","MessageTemplate":"Gemini rechazó una consulta. Código HTTP: {Estado}. Estado de Google: {EstadoGoogle}","Properties":{"Estado":503,"EstadoGoogle":"UNAVAILABLE","SourceContext":"VetWeb.Services.Chatbot.GeminiChatbotProveedor"}}""",
+        """{"Timestamp":"2001-02-03T05:03:00Z","Level":"Error","MessageTemplate":"Gemini rechazó una consulta. Código HTTP: {Estado}. Estado de Google: {EstadoGoogle}","Properties":{"Estado":503,"EstadoGoogle":null,"SourceContext":"VetWeb.Services.Chatbot.GeminiChatbotProveedor"}}""",
         """{"Timestamp":"2001-02-03T06:00:00Z","Level":"Warning","MessageTemplate":"Aviso descartado"}""",
         "{"
     });
     const string fechaErrores = "?desde=2001-02-03&hasta=2001-02-03";
     var listaErrores = await administrador.GetFromJsonAsync<List<ErrorLogRespuesta>>("/api/auditoria/errores" + fechaErrores);
-    Verificar(listaErrores?.Count == 2 && listaErrores[1].Ruta == "/api/prueba" && listaErrores[1].IdSolicitud == "prueba-123"
-        && listaErrores[0].Mensaje == "Gemini rechazó una consulta. Código HTTP: 503",
+    Verificar(listaErrores?.Count == 4 && listaErrores[3].Ruta == "/api/prueba" && listaErrores[3].IdSolicitud == "prueba-123"
+        && listaErrores[2].Mensaje == "Gemini rechazó una consulta. Código HTTP: 503"
+        && listaErrores[1].Mensaje.EndsWith("Estado de Google: UNAVAILABLE")
+        && listaErrores[0].Mensaje.EndsWith("Estado de Google: sin estado estructurado reconocido"),
         "El lector de errores no interpretó correctamente el formato de Serilog.");
     var pantallaErrores = await administrador.GetStringAsync("/Auditoria/Errores" + fechaErrores);
-    Verificar(pantallaErrores.Contains("Evento de prueba") && pantallaErrores.Contains("HTTP: 503")
+    Verificar(pantallaErrores.Contains("Evento de prueba") && pantallaErrores.Contains("HTTP: 503") && pantallaErrores.Contains("Estado de Google: UNAVAILABLE")
         && !pantallaErrores.Contains("Interno de prueba"),
         "La pantalla no muestra el evento o expone la excepción interna.");
     Verificar((await vet.GetAsync("/api/auditoria/errores")).StatusCode == HttpStatusCode.Forbidden
