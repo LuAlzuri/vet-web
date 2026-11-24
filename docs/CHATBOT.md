@@ -1,6 +1,6 @@
 # Asistente de VeteWeb
 
-El botón flotante abre el asistente en las páginas con sesión. Tutor y Veterinario tienen acciones guiadas que consultan datos reales y permiten solicitar turnos. Funcionan sin Gemini: se eligen opciones, no se interpretan todavía instrucciones escritas en lenguaje natural. Administrador dispone de consultas exclusivas de informes y auditoría, también mediante acciones guiadas.
+El botón flotante abre el asistente en las páginas con sesión. Tutor y Veterinario tienen acciones guiadas que consultan datos reales y permiten solicitar turnos. Administrador dispone de consultas de informes y auditoría. Estas acciones funcionan sin Gemini. Si se configura una clave, el chat escrito usa Gemini para orientación sobre VeteWeb; en esta etapa el texto no consulta registros ni ejecuta acciones.
 
 ## Acciones del dueño (rol Tutor)
 
@@ -53,7 +53,7 @@ Todas las acciones requieren cookie autenticada y antifalsificación. Las consul
 - `Services/Chatbot/ChatbotAccionesService.cs`: fachada de acciones, autorización y consultas.
 - `Services/Chatbot/ChatbotAdministradorService.cs`: consultas de informes y auditoría exclusivas del Administrador.
 - `Services/Chatbot/ChatbotReservasPendientes.cs`: propuestas temporales con confirmación de un solo uso.
-- `Services/Chatbot/IChatbotProveedor.cs` y `ChatbotSinConexion.cs`: extensión para el proveedor de lenguaje natural.
+- `Services/Chatbot/IChatbotProveedor.cs`, `GeminiChatbotProveedor.cs` y `ChatbotSinConexion.cs`: conversación por Gemini y alternativa sin configuración.
 - `Tests/Integracion/ChatbotAccionesPruebas.cs`: pruebas HTTP y base temporal de consultas privadas, reservas, vetos, confirmación y concurrencia.
 
 No se requiere migración. Las reservas confirmadas sí escriben turnos, consumen cupos y registran auditoría mediante los servicios existentes. El historial de conversación vive solo en la memoria de la página: navegar o recargar lo borra.
@@ -70,7 +70,7 @@ El servidor devuelve `mensaje`, `tablas` (título, columnas y filas), `acciones`
 
 Acciones disponibles: `inicio`, `cupos`, `turnos`, `perros-clinica`, `clinica`, `patologias`, `atenciones`, `tutores-faltas`, `faltas`, `vetos`, `tutores-reserva`, `perros-reserva`, `reserva-cupos`, `reserva-servicios`, `preparar`, `confirmar`, `descartar`, `admin-servicios`, `admin-estados`, `admin-comparar` y `admin-auditoria`. No todas están permitidas para cada rol. Los parámetros incluyen `perroId`, `tutorId`, `cupoId`, `servicioIds`, `pagina`, `busqueda`, `confirmacion` y `periodo` (`mes-actual` o `mes-anterior`). Las acciones de selección devuelven los parámetros necesarios para seguir.
 
-## Conversación por texto y futura conexión con Gemini
+## Conversación por texto y conexión con Gemini
 
 `POST /api/chatbot/mensajes` conserva el contrato:
 
@@ -78,14 +78,36 @@ Acciones disponibles: `inicio`, `cupos`, `turnos`, `perros-clinica`, `clinica`, 
 { "mensaje": "¿Cómo uso VeteWeb?", "historial": [{ "rol": "user", "texto": "Hola" }] }
 ```
 
-Todavía devuelve `conectado: false` y un mensaje que informa que Gemini no está conectado. No hay llamadas externas ni una clave configurada. El mensaje admite 2000 caracteres y el historial 12 entradas de 4000 caracteres, con roles `user` y `assistant`.
+El mensaje admite 2000 caracteres y el historial 12 entradas de 4000 caracteres, con roles `user` y `assistant`. El servidor traduce `assistant` a `model`, agrega instrucciones propias y envía texto a la API REST oficial `generateContent`. Devuelve `conectado: true` solo cuando obtiene una respuesta utilizable. Las respuestas se muestran como texto y se limitan a 4000 caracteres para poder reutilizarlas en el historial.
 
-Para conectar Gemini:
+En Visual Studio, **Administrar secretos de usuario**, agregar dentro del mismo objeto JSON que contiene la conexión:
 
-1. Crear un adaptador `GeminiChatbotProveedor : IChatbotProveedor` con `HttpClient` administrado. Configurar clave, modelo y timeout exclusivamente en el servidor, con secretos de usuario o variables de entorno. No poner claves en JavaScript ni en el repositorio.
-2. Traducir el historial de `assistant` a `model`. El historial del cliente es manipulable; las instrucciones del sistema se construyen en el servidor y no conceden acceso a datos.
-3. Registrar herramientas de consulta y preparación que llamen a `ChatbotAccionesService` con la identidad autenticada del servidor. No aceptar usuario ni rol desde la IA. Mantener las respuestas estructuradas para mostrar grillas y resolver ambigüedades mediante selección explícita.
-4. **No exponer `confirmar` como herramienta ejecutable por el modelo.** Gemini puede preparar una propuesta; la escritura debe continuar dependiendo del botón de confirmación y del token vinculado a la sesión. El texto “confirmo” del historial no prueba consentimiento.
-5. Reemplazar el proveedor sin conexión en `Program.cs`, controlar cuotas, límites por cuenta, errores y cancelaciones, y habilitar el dominio oficial de Gemini si el despliegue restringe salida a Internet.
+```json
+"Gemini:ApiKey": "TU_CLAVE",
+"Gemini:Modelo": "gemini-3.1-flash-lite",
+"Gemini:TimeoutSegundos": 30
+```
+
+Agregar la coma necesaria después de la propiedad anterior. En despliegue se pueden usar `Gemini__ApiKey`, `Gemini__Modelo` y `Gemini__TimeoutSegundos`. El timeout admite entre 5 y 60 segundos. Reiniciar el proyecto después de cambiar la configuración.
+
+`Program.cs` registra el proveedor con `HttpClient` cuando hay una clave; si falta, conserva el modo sin conexión. No requiere nuevos paquetes NuGet ni migraciones. La clave viaja en `x-goog-api-key`, nunca en la URL ni en el navegador. El destino es fijo: `https://generativelanguage.googleapis.com`. Los registros propios de errores guardan el código HTTP o el tipo de fallo, sin claves, mensajes ni respuestas externas.
+
+Para probar la configuración sin iniciar la web ni acceder a PostgreSQL:
+
+```powershell
+dotnet run --project VetWeb.csproj --launch-profile http -- --probar-gemini
+```
+
+El comando envía una consulta genérica sobre VeteWeb, muestra el resultado y termina. Consume una solicitud de la cuota. Una clave configurada no garantiza conexión: el proyecto de Google debe permitir el modelo y el servidor debe tener salida HTTPS. Se manejan errores de clave/permisos, modelo no disponible, cuota, timeout, red, JSON inválido y respuesta bloqueada o vacía; no se hacen reintentos automáticos.
+
+El endpoint de texto permite 10 solicitudes por minuto por cuenta, compartidas entre sus roles, por instancia de la aplicación. Esto no sustituye la cuota global del proyecto de Google. Las acciones guiadas no se bloquean al alcanzar ese límite. Las pruebas de integración deshabilitan la clave personal explícitamente y usan un transporte simulado para comprobar el proveedor sin llamadas externas.
+
+### Próxima etapa: texto conectado a las acciones
+
+Queda pendiente registrar herramientas de consulta y preparación que llamen a `ChatbotAccionesService` con la identidad autenticada del servidor. El contrato actual de conversación no recibe esa identidad; deberá ampliarse al incorporar herramientas. No aceptar usuario ni rol desde la IA, mantener las grillas y resolver ambigüedades mediante selección explícita.
+
+**No exponer `confirmar` como herramienta ejecutable por el modelo.** La escritura debe seguir dependiendo del botón y del token vinculado a la sesión. El texto “confirmo” del historial no prueba consentimiento.
+
+Referencias: [API generateContent](https://ai.google.dev/api/generate-content) y [modelo Gemini 3.1 Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite).
 
 El chatbot consulta registros; no inventa diagnósticos ni modifica datos clínicos. No tiene acciones para eliminar turnos, cambiar estados, editar patologías ni levantar vetos.

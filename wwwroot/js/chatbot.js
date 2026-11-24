@@ -54,7 +54,7 @@
         status.textContent = "Enviando…";
         append("user", text);
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30000);
+        const timeout = setTimeout(() => controller.abort(), 75000);
         try {
             const response = await fetch(root.dataset.url, {
                 method: "POST",
@@ -69,6 +69,7 @@
             if (!response.ok) {
                 if (response.status === 401 || response.status === 403) throw new Error("Tu sesión cambió. Recargá la página para continuar.");
                 if (response.status === 400) throw new Error("No se pudo validar el mensaje. Revisalo o recargá la página.");
+                if (response.status === 429) throw new Error("Alcanzaste el límite de consultas por minuto. Esperá antes de volver a enviar.");
                 throw new Error("No pudimos enviar el mensaje. Intentá nuevamente.");
             }
             const data = await response.json();

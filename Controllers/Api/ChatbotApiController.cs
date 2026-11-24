@@ -8,7 +8,7 @@ namespace VetWeb.Controllers.Api;
 [ApiController, Route("api/chatbot"), Authorize(Roles = "Veterinario,Tutor,Administrador")]
 public sealed class ChatbotApiController(IChatbotProveedor proveedor, ChatbotAccionesService acciones) : ControllerBase
 {
-    [HttpPost("mensajes"), RequestSizeLimit(65536)]
+    [HttpPost("mensajes"), RequestSizeLimit(65536), Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("chatbot-texto")]
     public async Task<ActionResult<ChatbotRespuesta>> Enviar(ChatbotSolicitud solicitud, CancellationToken cancellationToken)
     {
         Response.Headers.CacheControl = "no-store";

@@ -46,6 +46,7 @@ string vetId = "", tutorId = "", otroId = "", dualId = "";
 int perroId = 0, otroPerroId = 0, cupoId = 0, servicioId = 0, vetPerfil = 0, dualPerfil = 0, turnoId = 0;
 try
 {
+    await GeminiProveedorPruebas.EjecutarAsync();
     await using (var scope = provider.CreateAsyncScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -135,6 +136,8 @@ try
         RedirectStandardOutput = true, RedirectStandardError = true };
     start.ArgumentList.Add(dll); start.ArgumentList.Add("--urls"); start.ArgumentList.Add("http://localhost:5057");
     start.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
+    // La suite nunca usa la clave personal ni llama servicios externos.
+    start.Environment["Gemini__ApiKey"] = "";
     start.Environment["ConnectionStrings__DefaultConnection"] = prueba.ConnectionString;
     start.Environment["FotosPerros__Directorio"] = directorioFotosPrueba;
     start.Environment["ErrorLog__Path"] = Path.Combine(directorioErroresPrueba, "errores-.log");

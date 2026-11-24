@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Extensions.Logging;
 using Serilog.Formatting.Json;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Security.Claims;
+using System.Threading.RateLimiting;
 using VetWeb.Data;
 using VetWeb.Models;
 
@@ -35,11 +38,26 @@ builder.Services.AddControllersWithViews(options =>
     options.ModelBindingMessageProvider.SetValueMustNotBeNullAccessor(valor => "Este campo es obligatorio.");
 });
 builder.Services.AddRazorPages();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("chatbot-texto", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "sin-sesion",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+});
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<VetWeb.Services.Chatbot.ChatbotReservasPendientes>();
 builder.Services.AddScoped<VetWeb.Services.Chatbot.ChatbotAccionesService>();
 builder.Services.AddScoped<VetWeb.Services.Chatbot.ChatbotAdministradorService>();
-builder.Services.AddScoped<VetWeb.Services.Chatbot.IChatbotProveedor, VetWeb.Services.Chatbot.ChatbotSinConexion>();
+if (string.IsNullOrWhiteSpace(builder.Configuration["Gemini:ApiKey"]))
+    builder.Services.AddScoped<VetWeb.Services.Chatbot.IChatbotProveedor, VetWeb.Services.Chatbot.ChatbotSinConexion>();
+else
+    builder.Services.AddHttpClient<VetWeb.Services.Chatbot.IChatbotProveedor, VetWeb.Services.Chatbot.GeminiChatbotProveedor>(http =>
+    {
+        http.Timeout = Timeout.InfiniteTimeSpan;
+        http.MaxResponseContentBufferSize = 256 * 1024;
+    }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false })
+      .RedactLoggedHeaders(new[] { "x-goog-api-key" });
 builder.Services.AddScoped<VetWeb.Services.CuentaService>();
 builder.Services.AddScoped<VetWeb.Services.PerroService>();
 builder.Services.AddScoped<VetWeb.Services.CupoService>();
@@ -112,6 +130,17 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 var app = builder.Build();
 
+if (args.Contains("--probar-gemini"))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var proveedor = scope.ServiceProvider.GetRequiredService<VetWeb.Services.Chatbot.IChatbotProveedor>();
+    var respuesta = await proveedor.ResponderAsync(new VetWeb.Dtos.ChatbotSolicitud
+        { Mensaje = "Respondé brevemente: ¿para qué sirve VeteWeb?" }, CancellationToken.None);
+    Console.WriteLine(respuesta.Conectado ? "Conexión con Gemini verificada: " + respuesta.Mensaje : respuesta.Mensaje);
+    Environment.ExitCode = respuesta.Conectado ? 0 : 1;
+    return;
+}
+
 if (args.Contains("--crear-administrador"))
 {
     await using var scope = app.Services.CreateAsyncScope();
@@ -171,6 +200,7 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseMiddleware<VetWeb.Middleware.CuentaActivaMiddleware>();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllerRoute(
     name: "default",

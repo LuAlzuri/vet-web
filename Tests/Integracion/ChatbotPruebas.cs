@@ -47,6 +47,19 @@ internal static class ChatbotPruebas
                 using var invalida = await Enviar(datos);
                 Exigir(invalida.StatusCode == HttpStatusCode.BadRequest, "aceptó entrada inválida");
             }
+            HttpStatusCode ultimoEstado = HttpStatusCode.OK;
+            for (var i = 0; i < 11; i++)
+            {
+                using var limitada = await Enviar(new { mensaje = "Hola" });
+                ultimoEstado = limitada.StatusCode;
+            }
+            Exigir(ultimoEstado == HttpStatusCode.TooManyRequests, "no limita mensajes por cuenta");
+            using var accionesDisponibles = await cliente.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/api/chatbot/acciones")
+            {
+                Content = JsonContent.Create(new { accion = "inicio" }),
+                Headers = { { "RequestVerificationToken", token } }
+            });
+            Exigir(accionesDisponibles.IsSuccessStatusCode, "el límite de texto bloquea las acciones guiadas");
         }
         Console.WriteLine("Chatbot: tres roles, autenticación, CSRF, validación y proveedor sin conexión verificados.");
     }
