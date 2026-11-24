@@ -1,6 +1,6 @@
 # Asistente de VeteWeb
 
-El botón flotante abre el asistente en las páginas con sesión. Las acciones guiadas funcionan sin Gemini y permiten consultar registros y solicitar turnos. Con Gemini configurado, el texto puede iniciar consultas de lectura o abrir la selección para solicitar un turno. El servidor aplica el rol activo de la sesión y obtiene las opciones del sistema.
+El botón flotante abre el asistente en las páginas con sesión. El botón **Acciones asistidas** muestra u oculta las opciones. Las acciones guiadas funcionan sin Gemini y permiten consultar registros y solicitar turnos. Con Gemini configurado, el texto puede iniciar consultas de lectura o abrir la selección para solicitar un turno. El servidor aplica el rol activo de la sesión y obtiene las opciones del sistema.
 
 ## Acciones del dueño (rol Tutor)
 
@@ -34,7 +34,7 @@ Los límites de mes y las fechas visibles usan la zona de Argentina. Los indicad
 
 ## Confirmación y seguridad
 
-Preparar una reserva no escribe un turno ni consume plazas. El servidor guarda una propuesta temporal por cuenta y rol, devuelve un identificador aleatorio de confirmación y muestra el resumen. Solo el botón **Confirmar solicitud de turno** la ejecuta. La propuesta vence a los 5 minutos; preparar otra reemplaza la anterior. **Descartar**, **Acciones disponibles** o **Nueva conversación** invalidan la propuesta pendiente.
+Preparar una reserva no escribe un turno ni consume plazas. El servidor guarda una propuesta temporal por cuenta y rol, devuelve un identificador aleatorio de confirmación y muestra el resumen. Solo el botón **Confirmar solicitud de turno** la ejecuta. La propuesta vence a los 5 minutos; preparar otra reemplaza la anterior. **Descartar**, **Volver a las acciones asistidas** o **Nueva conversación** invalidan la propuesta pendiente.
 
 La confirmación se consume una sola vez, de manera atómica, y se vincula al usuario y rol de la sesión. El cliente no puede cambiar los datos aprobados enviando un perro, tutor, agenda o servicio distinto al confirmar. La disponibilidad, pertenencia, veto, edad/vacunas y duplicación de turno se vuelven a validar mediante los servicios de negocio al guardar. El bloqueo transaccional existente evita sobreventa de plazas.
 

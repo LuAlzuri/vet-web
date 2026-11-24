@@ -6,6 +6,7 @@
     const panel = root.querySelector(".chatbot-panel");
     const form = root.querySelector(".chatbot-formulario");
     const input = root.querySelector("textarea");
+    const content = root.querySelector(".chatbot-contenido");
     const log = root.querySelector(".chatbot-mensajes");
     const status = root.querySelector(".chatbot-estado");
     const send = form.querySelector('[type="submit"]');
@@ -35,7 +36,7 @@
         message.append(label, document.createTextNode(text));
         log.append(message);
         while (log.children.length > 24) log.firstElementChild.remove();
-        log.scrollTop = log.scrollHeight;
+        content.scrollTop = content.scrollHeight;
     }
     clear.addEventListener("click", () => {
         if (busy || root.dataset.accionesOcupadas === "true") return;
@@ -96,7 +97,7 @@
             busy = false;
             delete root.dataset.textoOcupado;
             send.disabled = clear.disabled = input.disabled = false;
-            if (!panel.hidden) input.focus();
+            if (!panel.hidden) input.focus({ preventScroll: true });
         }
     });
 })();

@@ -2,19 +2,24 @@
     "use strict";
     const root = document.querySelector('[data-chatbot][data-herramientas="true"]');
     if (!root) return;
-    root.classList.add("chatbot-con-herramientas");
+    const content = root.querySelector(".chatbot-contenido");
+    const toggle = root.querySelector("[data-chatbot-acciones]");
     const container = root.querySelector(".chatbot-herramientas");
     const result = root.querySelector(".chatbot-resultado");
     const search = root.querySelector(".chatbot-busqueda");
     const searchInput = search.querySelector("input");
     const home = root.querySelector("[data-chatbot-inicio]");
     const status = root.querySelector(".chatbot-estado");
-    container.hidden = false;
     let loaded = false;
     let busy = false;
     let searchRequest = null;
     let soloLectura = false;
     let propuestaPendiente = null;
+    function mostrarAcciones(mostrar) {
+        container.hidden = !mostrar;
+        toggle.setAttribute("aria-expanded", String(mostrar));
+        if (mostrar) content.scrollTop = 0;
+    }
     function element(tag, text, className) {
         const node = document.createElement(tag);
         if (text !== undefined) node.textContent = text;
@@ -78,7 +83,7 @@
         }
         result.append(buttons);
         search.hidden = !data.buscarTutor;
-        container.scrollTop = 0;
+        if (!container.hidden) content.scrollTop = 0;
     }
     async function execute(request) {
         if (busy) return;
@@ -108,6 +113,7 @@
             if (request.accion === "preparar") propuestaPendiente = data;
             if (request.accion === "confirmar" || request.accion === "descartar") propuestaPendiente = null;
             render(data);
+            home.hidden = request.accion === "inicio" || request.accion === "descartar";
             searchRequest = data.buscarTutor ? { ...request, pagina: 1 } : null;
             if (searchRequest) searchInput.value = searchRequest.busqueda ?? searchRequest.pistasReserva?.tutor ?? "";
             status.textContent = "";
@@ -128,6 +134,8 @@
         if (busy) return;
         const { resultado, inicioReserva } = event.detail;
         soloLectura = !inicioReserva;
+        mostrarAcciones(true);
+        home.hidden = false;
         render(resultado);
         searchRequest = resultado.buscarTutor ? inicioReserva ?? { accion: "tutores-faltas", pagina: 1 } : null;
         if (searchRequest) searchInput.value = searchRequest.busqueda ?? searchRequest.pistasReserva?.tutor ?? "";
@@ -138,8 +146,10 @@
         event.preventDefault();
         if (searchRequest) execute({ ...searchRequest, busqueda: searchInput.value.trim(), pagina: 1 });
     });
-    root.querySelector(".chatbot-abrir").addEventListener("click", () => {
-        if (!loaded && !root.querySelector(".chatbot-panel").hidden) execute({ accion: "inicio" });
+    toggle.addEventListener("click", () => {
+        if (busy || root.dataset.textoOcupado === "true") return;
+        mostrarAcciones(container.hidden);
+        if (!container.hidden && !loaded) execute({ accion: "inicio" });
     });
     root.querySelector("[data-chatbot-limpiar]").addEventListener("click", () => { soloLectura = false; execute({ accion: "descartar" }); });
 })();

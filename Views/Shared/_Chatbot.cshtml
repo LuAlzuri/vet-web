@@ -15,17 +15,23 @@
             {
                 <p class="chatbot-aviso">Preguntá por informes y auditoría. El texto se envía a Gemini; el servidor muestra los registros permitidos sin enviárselos al modelo.</p>
             }
-            <div class="chatbot-mensajes" role="log" aria-label="Conversación" aria-live="polite" aria-relevant="additions"></div>
-            <div class="chatbot-herramientas" hidden>
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-chatbot-inicio>Acciones disponibles</button>
-                <div class="chatbot-resultado" aria-live="polite"></div>
-                <form class="chatbot-busqueda" hidden>
-                    <label for="chatbot-tutor">Buscar tutor por nombre o apellido</label>
-                    <div class="chatbot-acciones">
-                        <input id="chatbot-tutor" class="form-control" maxlength="100" />
-                        <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
-                    </div>
-                </form>
+            <div class="chatbot-contenido">
+                <div class="chatbot-barra-acciones">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-chatbot-acciones
+                            aria-expanded="false" aria-controls="chatbot-herramientas">Acciones asistidas</button>
+                </div>
+                <div id="chatbot-herramientas" class="chatbot-herramientas" hidden>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-chatbot-inicio hidden>Volver a las acciones asistidas</button>
+                    <div class="chatbot-resultado" aria-live="polite"></div>
+                    <form class="chatbot-busqueda" hidden>
+                        <label for="chatbot-tutor">Buscar tutor por nombre o apellido</label>
+                        <div class="chatbot-acciones">
+                            <input id="chatbot-tutor" class="form-control" maxlength="100" />
+                            <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="chatbot-mensajes" role="log" aria-label="Conversación" aria-live="polite" aria-relevant="additions"></div>
             </div>
             <p class="chatbot-estado" role="status"></p>
             <form class="chatbot-formulario">
