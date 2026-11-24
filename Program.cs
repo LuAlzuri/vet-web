@@ -48,6 +48,7 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<VetWeb.Services.Chatbot.ChatbotReservasPendientes>();
 builder.Services.AddScoped<VetWeb.Services.Chatbot.ChatbotAccionesService>();
+builder.Services.AddScoped<VetWeb.Services.Chatbot.ChatbotConsultasService>();
 builder.Services.AddScoped<VetWeb.Services.Chatbot.ChatbotAdministradorService>();
 if (string.IsNullOrWhiteSpace(builder.Configuration["Gemini:ApiKey"]))
     builder.Services.AddScoped<VetWeb.Services.Chatbot.IChatbotProveedor, VetWeb.Services.Chatbot.ChatbotSinConexion>();
@@ -135,8 +136,10 @@ if (args.Contains("--probar-gemini"))
     await using var scope = app.Services.CreateAsyncScope();
     var proveedor = scope.ServiceProvider.GetRequiredService<VetWeb.Services.Chatbot.IChatbotProveedor>();
     var respuesta = await proveedor.ResponderAsync(new VetWeb.Dtos.ChatbotSolicitud
-        { Mensaje = "Respondé brevemente: ¿para qué sirve VeteWeb?" }, CancellationToken.None);
-    Console.WriteLine(respuesta.Conectado ? "Conexión con Gemini verificada: " + respuesta.Mensaje : respuesta.Mensaje);
+        { Mensaje = args.Contains("--consulta-lectura") ? "¿Qué turnos tengo?" : "Respondé brevemente: ¿para qué sirve VeteWeb?",
+          RolActivo = args.Contains("--consulta-lectura") ? "Tutor" : null }, CancellationToken.None);
+    Console.WriteLine(respuesta.Conectado ? "Conexión con Gemini verificada: " +
+        (respuesta.Consulta is null ? respuesta.Mensaje : "consulta de lectura interpretada: " + respuesta.Consulta.Accion) : respuesta.Mensaje);
     Environment.ExitCode = respuesta.Conectado ? 0 : 1;
     return;
 }

@@ -13,6 +13,7 @@
     let loaded = false;
     let busy = false;
     let searchRequest = null;
+    let soloLectura = false;
     function element(tag, text, className) {
         const node = document.createElement(tag);
         if (text !== undefined) node.textContent = text;
@@ -69,14 +70,16 @@
     }
     async function execute(request) {
         if (busy) return;
+        if (root.dataset.textoOcupado === "true") return;
         busy = true;
+        root.dataset.accionesOcupadas = "true";
         container.setAttribute("aria-busy", "true");
         container.querySelectorAll("button, input").forEach(node => node.disabled = true);
         status.textContent = request.accion === "confirmar" ? "Guardando solicitud…" : "Consultando…";
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 30000);
         try {
-            const response = await fetch(root.dataset.accionesUrl, {
+            const response = await fetch(soloLectura ? root.dataset.consultasUrl : root.dataset.accionesUrl, {
                 method: "POST", credentials: "same-origin", signal: controller.signal,
                 headers: {
                     "Content-Type": "application/json",
@@ -101,11 +104,19 @@
         } finally {
             clearTimeout(timeout);
             busy = false;
+            delete root.dataset.accionesOcupadas;
             container.setAttribute("aria-busy", "false");
             container.querySelectorAll("button, input").forEach(node => node.disabled = false);
         }
     }
-    home.addEventListener("click", () => execute({ accion: "descartar" }));
+    root.addEventListener("chatbot-consulta", event => {
+        if (busy) return;
+        soloLectura = true;
+        render(event.detail);
+        searchRequest = event.detail.buscarTutor ? { accion: "tutores-faltas", pagina: 1 } : null;
+        loaded = true;
+    });
+    home.addEventListener("click", () => { soloLectura = false; execute({ accion: "descartar" }); });
     search.addEventListener("submit", event => {
         event.preventDefault();
         if (searchRequest) execute({ ...searchRequest, busqueda: searchInput.value.trim(), pagina: 1 });
@@ -113,5 +124,5 @@
     root.querySelector(".chatbot-abrir").addEventListener("click", () => {
         if (!loaded && !root.querySelector(".chatbot-panel").hidden) execute({ accion: "inicio" });
     });
-    root.querySelector("[data-chatbot-limpiar]").addEventListener("click", () => execute({ accion: "descartar" }));
+    root.querySelector("[data-chatbot-limpiar]").addEventListener("click", () => { soloLectura = false; execute({ accion: "descartar" }); });
 })();

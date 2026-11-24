@@ -90,9 +90,10 @@ public sealed class ChatbotAccionesService(ApplicationDbContext db, TurnoService
                 return new(mensaje, tablas, acciones, BuscarTutor: true);
             case "perros-clinica":
             case "perros-reserva":
-                if (veterinario && !await db.Tutores.AnyAsync(x => x.Id == solicitud.TutorId && x.Usuario.Activo))
+                if (veterinario && (solicitud.Accion == "perros-reserva" || solicitud.TutorId.HasValue) && !await db.Tutores.AnyAsync(x => x.Id == solicitud.TutorId && x.Usuario.Activo))
                     throw new UnauthorizedAccessException();
-                var perros = await Perros().Where(x => !veterinario || x.TutorId == solicitud.TutorId)
+                var perros = await Perros().Where(x => !veterinario || !solicitud.TutorId.HasValue || x.TutorId == solicitud.TutorId)
+                    .Where(x => string.IsNullOrEmpty(solicitud.Busqueda) || x.Nombre.ToLower().Contains(solicitud.Busqueda.ToLower()))
                     .OrderBy(x => x.Nombre).ThenBy(x => x.Id).Skip((solicitud.Pagina - 1) * Tamano).Take(Tamano + 1)
                     .Select(x => new { x.Id, x.Nombre, x.TutorId, Tutor = x.Tutor.Usuario.Nombre + " " + x.Tutor.Usuario.Apellido }).ToListAsync();
                 mensaje = perros.Count == 0 ? "No hay perros disponibles para esta selección." : "Elegí el perro. Cada opción indica quién es su tutor.";
@@ -130,8 +131,7 @@ public sealed class ChatbotAccionesService(ApplicationDbContext db, TurnoService
                 Paginar(cupos.Count, p => Nueva(solicitud.Accion, solicitud.PerroId, solicitud.TutorId, pagina: p));
                 break;
             case "turnos":
-                if (veterinario) throw new UnauthorizedAccessException();
-                var listado = await turnos.ConsultarVisibles(usuario, false).OrderByDescending(x => x.CupoDiario.FechaCupo).ThenByDescending(x => x.Id)
+                var listado = await turnos.ConsultarVisibles(usuario, veterinario).OrderByDescending(x => x.CupoDiario.FechaCupo).ThenByDescending(x => x.Id)
                     .Skip((solicitud.Pagina - 1) * Tamano).Take(Tamano + 1)
                     .Select(x => new { x.Id, Perro = x.Perro.Nombre, Fecha = x.CupoDiario.FechaCupo, Estado = x.Estado.Descripcion }).ToListAsync();
                 tablas.Add(new("Mis turnos", ["Turno", "Perro", "Día", "Estado actual"], listado.Take(Tamano)
@@ -140,14 +140,12 @@ public sealed class ChatbotAccionesService(ApplicationDbContext db, TurnoService
                 Paginar(listado.Count, p => Nueva("turnos", pagina: p));
                 break;
             case "clinica":
-                if (veterinario) throw new UnauthorizedAccessException();
                 var clinico = await PerroElegido();
                 mensaje = $"Información registrada para {clinico.Nombre}.";
-                Boton("Ver patologías y observaciones", Nueva("patologias", clinico.Id));
-                Boton("Ver tratamientos y observaciones de las atenciones", Nueva("atenciones", clinico.Id));
+                Boton("Ver patologías y observaciones", Nueva("patologias", clinico.Id, clinico.TutorId));
+                Boton("Ver tratamientos y observaciones de las atenciones", Nueva("atenciones", clinico.Id, clinico.TutorId));
                 break;
             case "patologias":
-                if (veterinario) throw new UnauthorizedAccessException();
                 var paciente = await PerroElegido();
                 var patologias = await db.PerrosPatologias.AsNoTracking().Where(x => x.PerroId == paciente.Id)
                     .OrderBy(x => x.PatologiaId).Skip((solicitud.Pagina - 1) * Tamano).Take(Tamano + 1)
@@ -155,13 +153,12 @@ public sealed class ChatbotAccionesService(ApplicationDbContext db, TurnoService
                 tablas.Add(new("Patologías de " + paciente.Nombre, ["Patología", "Controlado", "Observación"], patologias.Take(Tamano)
                     .Select(x => new[] { x.Descripcion, x.Controlado ? "Sí" : "No", x.Observacion ?? "Sin observaciones" }).ToList()));
                 mensaje = patologias.Count == 0 ? "No hay patologías registradas en esta página." : "Patologías y observaciones registradas en la ficha del perro.";
-                Paginar(patologias.Count, p => Nueva("patologias", paciente.Id, pagina: p));
-                Boton("Ver atenciones", Nueva("atenciones", paciente.Id));
+                Paginar(patologias.Count, p => Nueva("patologias", paciente.Id, paciente.TutorId, pagina: p));
+                Boton("Ver atenciones", Nueva("atenciones", paciente.Id, paciente.TutorId));
                 break;
             case "atenciones":
-                if (veterinario) throw new UnauthorizedAccessException();
                 var atendido = await PerroElegido();
-                var atenciones = await turnos.ConsultarVisibles(usuario, false).Where(x => x.PerroId == atendido.Id && x.EstadoId == EstadosTurno.Completado)
+                var atenciones = await turnos.ConsultarVisibles(usuario, veterinario).Where(x => x.PerroId == atendido.Id && x.EstadoId == EstadosTurno.Completado)
                     .OrderByDescending(x => x.CupoDiario.FechaCupo).ThenByDescending(x => x.Id)
                     .Skip((solicitud.Pagina - 1) * Tamano).Take(Tamano + 1)
                     .Select(x => new { x.Id, x.CupoDiario.FechaCupo, x.Observaciones,
@@ -172,8 +169,8 @@ public sealed class ChatbotAccionesService(ApplicationDbContext db, TurnoService
                         x.Tratamientos.Count == 0 ? "Sin tratamientos registrados" : string.Join("\n", x.Tratamientos.Select(t => t.Descripcion + (string.IsNullOrWhiteSpace(t.Razon) ? "" : ": " + t.Razon))),
                         x.Observaciones ?? "Sin observaciones" }).ToList()));
                 mensaje = atenciones.Count == 0 ? "No hay atenciones completadas en esta página." : "Tratamientos y observaciones de las atenciones completadas, tal como los registró el veterinario.";
-                Paginar(atenciones.Count, p => Nueva("atenciones", atendido.Id, pagina: p));
-                Boton("Ver patologías", Nueva("patologias", atendido.Id));
+                Paginar(atenciones.Count, p => Nueva("atenciones", atendido.Id, atendido.TutorId, pagina: p));
+                Boton("Ver patologías", Nueva("patologias", atendido.Id, atendido.TutorId));
                 break;
             case "faltas":
                 if (!veterinario) throw new UnauthorizedAccessException();

@@ -9,6 +9,8 @@ public sealed class ChatbotSolicitud : IValidatableObject
 
     [MaxLength(12)]
     public List<ChatbotMensaje> Historial { get; set; } = [];
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? RolActivo { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext context)
     {
@@ -21,4 +23,5 @@ public sealed class ChatbotSolicitud : IValidatableObject
 }
 
 public sealed record ChatbotMensaje(string Rol, string Texto);
-public sealed record ChatbotRespuesta(string Mensaje, bool Conectado);
+public sealed record ChatbotRespuesta(string Mensaje, bool Conectado,
+    ChatbotAccionSolicitud? Consulta = null, ChatbotAccionRespuesta? Resultado = null);

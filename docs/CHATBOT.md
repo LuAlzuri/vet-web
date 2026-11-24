@@ -1,6 +1,6 @@
 # Asistente de VeteWeb
 
-El botón flotante abre el asistente en las páginas con sesión. Tutor y Veterinario tienen acciones guiadas que consultan datos reales y permiten solicitar turnos. Administrador dispone de consultas de informes y auditoría. Estas acciones funcionan sin Gemini. Si se configura una clave, el chat escrito usa Gemini para orientación sobre VeteWeb; en esta etapa el texto no consulta registros ni ejecuta acciones.
+El botón flotante abre el asistente en las páginas con sesión. Las acciones guiadas funcionan sin Gemini y permiten consultar registros y solicitar turnos. Con Gemini configurado, las preguntas por texto también pueden iniciar consultas de solo lectura: el modelo identifica la consulta y el servidor obtiene los registros con el rol activo de la sesión.
 
 ## Acciones del dueño (rol Tutor)
 
@@ -51,6 +51,7 @@ Todas las acciones requieren cookie autenticada y antifalsificación. Las consul
 - `Controllers/Api/ChatbotApiController.cs`: `POST /api/chatbot/mensajes` y `POST /api/chatbot/acciones`.
 - `Dtos/ChatbotDto.cs` y `Dtos/ChatbotAccionDto.cs`: contratos y validaciones.
 - `Services/Chatbot/ChatbotAccionesService.cs`: fachada de acciones, autorización y consultas.
+- `Services/Chatbot/ChatbotConsultasService.cs`: consultas por texto y endpoint de lectura con lista cerrada por rol activo.
 - `Services/Chatbot/ChatbotAdministradorService.cs`: consultas de informes y auditoría exclusivas del Administrador.
 - `Services/Chatbot/ChatbotReservasPendientes.cs`: propuestas temporales con confirmación de un solo uso.
 - `Services/Chatbot/IChatbotProveedor.cs`, `GeminiChatbotProveedor.cs` y `ChatbotSinConexion.cs`: conversación por Gemini y alternativa sin configuración.
@@ -102,9 +103,31 @@ El comando envía una consulta genérica sobre VeteWeb, muestra el resultado y t
 
 El endpoint de texto permite 10 solicitudes por minuto por cuenta, compartidas entre sus roles, por instancia de la aplicación. Esto no sustituye la cuota global del proyecto de Google. Las acciones guiadas no se bloquean al alcanzar ese límite. Las pruebas de integración deshabilitan la clave personal explícitamente y usan un transporte simulado para comprobar el proveedor sin llamadas externas.
 
-### Próxima etapa: texto conectado a las acciones
+### Consultas de lectura por texto
 
-Queda pendiente registrar herramientas de consulta y preparación que llamen a `ChatbotAccionesService` con la identidad autenticada del servidor. El contrato actual de conversación no recibe esa identidad; deberá ampliarse al incorporar herramientas. No aceptar usuario ni rol desde la IA, mantener las grillas y resolver ambigüedades mediante selección explícita.
+`ChatbotConsultasService` recibe la identidad autenticada del controlador, verifica que haya un solo rol activo y publica únicamente consultas permitidas. El cliente no puede establecer `RolActivo` en el JSON. Gemini puede proponer una llamada `consultar_vetweb`, pero no decide los permisos ni recibe acceso directo a EF Core.
+
+| Rol activo | Consultas por texto |
+| --- | --- |
+| Tutor | Sus turnos, mascotas, patologías y atenciones; cupos disponibles. |
+| Veterinario | Su agenda y turnos sin profesional, mascotas, fichas y atenciones visibles; cupos; cancelaciones y vetos de tutores. |
+| Administrador | Servicios solicitados, completados/cancelados, comparación mensual y auditoría. |
+
+Ejemplos: «¿Qué turnos tengo?», «¿Hay cupos disponibles?», «Quiero ver las patologías de Luna», «Quiero consultar los vetos de un cliente», «¿Cuáles fueron los servicios más solicitados el mes anterior?».
+
+Las consultas del modelo no admiten identificadores de tutor o perro. Para consultar sus fichas se muestran opciones obtenidas del servidor, con nombre e identificador para distinguir homónimos. La búsqueda de mascotas filtra por nombre; la de tutores, por nombre/apellido. Los informes admiten mes actual hasta hoy o mes anterior completo. Otros filtros y períodos no están implementados en este flujo.
+
+El servidor devuelve las tablas reales directamente al navegador con el mismo diseño del flujo guiado. No envía los resultados clínicos, turnos ni auditoría de vuelta a Gemini, y tampoco los agrega al historial enviado en la siguiente consulta. Sí se envían el mensaje del usuario, el historial textual y el nombre de su rol activo. Se hace una sola llamada a Gemini por mensaje.
+
+Los botones de los resultados de lectura usan `POST /api/chatbot/consultas`, con cookie y antifalsificación. Este endpoint valida nuevamente rol y pertenencia, filtra los botones con una lista cerrada y rechaza `preparar`, `confirmar`, `descartar` y todos los pasos de reserva. Las consultas no consumen cupos ni descartan propuestas pendientes. El botón **Acciones disponibles** permite volver explícitamente al flujo guiado existente.
+
+Para comprobar únicamente la interpretación del modelo, sin leer registros:
+
+```powershell
+dotnet run --project VetWeb.csproj --launch-profile http -- --probar-gemini --consulta-lectura
+```
+
+Queda pendiente incorporar preparación de reservas desde texto. Esta etapa no ejecuta operaciones de escritura.
 
 **No exponer `confirmar` como herramienta ejecutable por el modelo.** La escritura debe seguir dependiendo del botón y del token vinculado a la sesión. El texto “confirmo” del historial no prueba consentimiento.
 

@@ -5,7 +5,7 @@ using VetWeb.Dtos;
 
 namespace VetWeb.Services.Chatbot;
 
-// Solo conversación: no consulta la base ni ejecuta acciones del sistema.
+// Interpreta texto. Las consultas propuestas se autorizan y ejecutan fuera del proveedor.
 public sealed class GeminiChatbotProveedor(HttpClient http, IConfiguration configuracion,
     ILogger<GeminiChatbotProveedor> logger) : IChatbotProveedor
 {
@@ -18,8 +18,19 @@ public sealed class GeminiChatbotProveedor(HttpClient http, IConfiguration confi
         Administrador gestiona veterinarios, roles, auditoría e informes.
         Cada sesión trabaja con un solo rol activo, que se cambia desde el menú del nombre.
         Para cambiar la contraseña se usa el menú del nombre, Cambiar contraseña.
-        No tenés acceso a datos reales, herramientas, base de datos ni funciones de reserva.
-        Para consultar mascotas, turnos, cupos e informes, indicá usar Acciones disponibles.
+        No tenés acceso a datos reales por tu cuenta, ni a funciones de reserva o escritura.
+        Si recibís la herramienta consultar_vetweb, usala para solicitar una consulta de lectura.
+        Solo proponé las acciones enumeradas para el rol activo provisto por el servidor.
+        cupos: disponibilidad; turnos: agenda visible; perros-clinica: mascotas y sus datos clínicos;
+        tutores-faltas: buscar tutores para consultar cancelaciones y vetos;
+        admin-servicios: ranking de servicios; admin-estados: totales de completados y cancelados;
+        admin-comparar: comparación de meses; admin-auditoria: eventos de auditoría.
+        Para patologías o atenciones pedí perros-clinica: el usuario elegirá explícitamente su mascota.
+        Para vetos o cancelaciones de un cliente pedí tutores-faltas y su nombre como busqueda.
+        No inventes IDs. Pedí una sola consulta por mensaje. busqueda filtra mascotas o tutores por nombre;
+        no representa filtros por fecha o estado. Solo se admiten mes-actual o mes-anterior para informes.
+        Si piden otros períodos o filtros no soportados, explicá la limitación y pedí elegir una opción válida.
+        Para reservas, cancelaciones, ediciones o bajas indicá las opciones de la web, sin ejecutar herramientas.
         Nunca afirmes haber consultado registros, reservado, confirmado ni modificado datos.
         No inventes disponibilidad, precios, horarios, información clínica ni permisos del usuario.
         No pidas contraseñas ni claves. No diagnostiques ni indiques medicamentos.
@@ -46,12 +57,27 @@ public sealed class GeminiChatbotProveedor(HttpClient http, IConfiguration confi
         using var peticion = new HttpRequestMessage(HttpMethod.Post,
             $"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent");
         peticion.Headers.Add("x-goog-api-key", clave);
-        peticion.Content = JsonContent.Create(new
+        var cuerpo = new Dictionary<string, object>
         {
-            systemInstruction = new { parts = new[] { new { text = Instrucciones } } },
-            contents = contenidos,
-            generationConfig = new { maxOutputTokens = 1024 }
-        });
+            ["systemInstruction"] = new { parts = new[] { new { text = Instrucciones + "\nRol activo del servidor: " + (solicitud.RolActivo ?? "sin contexto de sesión") } } },
+            ["contents"] = contenidos,
+            ["generationConfig"] = new { maxOutputTokens = 1024 }
+        };
+        var permitidas = ChatbotConsultasService.Permitidas(solicitud.RolActivo)
+            .Where(x => x is not ("clinica" or "patologias" or "atenciones" or "faltas" or "vetos")).ToArray();
+        if (permitidas.Length > 0)
+            cuerpo["tools"] = new[] { new { functionDeclarations = new[] { new
+            {
+                name = "consultar_vetweb", description = "Solicitar una consulta de lectura. El servidor valida permisos y muestra los resultados; no realiza modificaciones.",
+                parameters = new { type = "OBJECT", properties = new Dictionary<string, object>
+                {
+                    ["accion"] = new { type = "STRING", @enum = permitidas },
+                    ["busqueda"] = new { type = "STRING", description = "Nombre o apellido de tutor, o nombre de mascota; no inventar identificadores." },
+                    ["pagina"] = new { type = "INTEGER", minimum = 1, maximum = 100000 },
+                    ["periodo"] = new { type = "STRING", @enum = new[] { "mes-actual", "mes-anterior" } }
+                }, required = new[] { "accion" } }
+            } } } };
+        peticion.Content = JsonContent.Create(cuerpo);
         using var espera = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         espera.CancelAfter(TimeSpan.FromSeconds(segundos));
         try
@@ -77,6 +103,19 @@ public sealed class GeminiChatbotProveedor(HttpClient http, IConfiguration confi
                 var fin = candidato.TryGetProperty("finishReason", out var razon) ? razon.GetString() : null;
                 if (fin is "STOP" or "MAX_TOKENS" && candidato.TryGetProperty("content", out var contenido) && contenido.TryGetProperty("parts", out var partes))
                 {
+                    var llamadas = partes.EnumerateArray().Where(x => x.TryGetProperty("functionCall", out _)).ToList();
+                    if (llamadas.Count > 0)
+                    {
+                        if (fin != "STOP" || llamadas.Count != 1 || permitidas.Length == 0)
+                            return Fallo("Hacé una consulta por vez para poder mostrar sus resultados.");
+                        var llamada = llamadas[0].GetProperty("functionCall");
+                        if (llamada.GetProperty("name").GetString() != "consultar_vetweb")
+                            return Fallo("La herramienta solicitada no está disponible.");
+                        var consulta = llamada.GetProperty("args").Deserialize<ChatbotAccionSolicitud>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        if (consulta is null || !permitidas.Contains(consulta.Accion))
+                            return Fallo("Esa consulta no está disponible para tu rol activo.");
+                        return new("Consultando registros permitidos.", true, consulta);
+                    }
                     var texto = string.Join("\n", partes.EnumerateArray()
                         .Where(x => !(x.TryGetProperty("thought", out var pensamiento) && pensamiento.ValueKind == JsonValueKind.True))
                         .Where(x => x.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String)
@@ -96,7 +135,7 @@ public sealed class GeminiChatbotProveedor(HttpClient http, IConfiguration confi
             logger.LogError("No se pudo establecer la comunicación con Gemini.");
             return Fallo("No se pudo conectar con Gemini. Revisá la conexión a Internet del servidor.");
         }
-        catch (Exception error) when (error is JsonException or InvalidOperationException or IOException)
+        catch (Exception error) when (error is JsonException or InvalidOperationException or IOException or KeyNotFoundException)
         {
             logger.LogError("Gemini devolvió una respuesta inválida.");
             return Fallo("No se pudo interpretar la respuesta de Gemini. Intentá nuevamente.");
