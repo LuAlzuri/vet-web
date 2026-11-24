@@ -28,7 +28,9 @@ Solo se muestran los perros y datos clínicos que pertenecen al usuario autentic
 - **Servicios más solicitados:** ranking paginado de servicios según la primera fecha de solicitud del turno. Incluye reservas presenciales y turnos luego cancelados. Se puede alternar entre el mes actual hasta hoy y el mes anterior completo.
 - **Turnos completados y cancelados:** totales de solicitudes, completados y cancelaciones, distinguiendo Tutor y Veterinario. Cada indicador usa la fecha de su evento de auditoría; no la fecha agendada. Los rechazados no son cancelaciones.
 - **Comparar este mes con el anterior:** grilla con solicitudes, completados, cancelaciones por rol y total cancelado, más diferencia absoluta. Se explicita que el mes actual está en curso y el anterior es un mes completo, sin proyectar resultados ni presentar una variación entre períodos de igual duración.
-- **Últimas acciones de auditoría:** eventos paginados de 25 en 25, por fecha e identificador descendentes, con usuario, rol, tutor y estados anterior/nuevo.
+- **Movimientos de auditoría:** eventos paginados de 25 en 25, por fecha e identificador descendentes, con usuario, rol, tutor y estados anterior/nuevo.
+
+- **Errores técnicos más frecuentes:** cuenta los errores y fallos fatales conservados del mes actual o anterior, agrupados por mensaje y origen. Muestra todos los que empatan en la frecuencia más alta.
 
 Los límites de mes y las fechas visibles usan la zona de Argentina. Los indicadores deduplican los eventos por turno y conservan el historial de bajas lógicas. Los informes indican desde cuándo hay cobertura de auditoría; no inventan fechas para turnos sin eventos. Las consultas no modifican turnos, cupos ni auditoría. Administrador no obtiene acciones de reserva ni de consulta clínica por tener otros roles asignados: rige el rol activo.
 
@@ -69,7 +71,7 @@ Enviar JSON y el encabezado `RequestVerificationToken` obtenido de una página a
 
 El servidor devuelve `mensaje`, `tablas` (título, columnas y filas), `acciones` (etiqueta y solicitud del siguiente paso) y `buscarTutor`. El cliente envía la solicitud de la opción elegida, sin tomar decisiones de autorización.
 
-Acciones disponibles: `inicio`, `cupos`, `turnos`, `perros-clinica`, `clinica`, `patologias`, `atenciones`, `tutores-faltas`, `faltas`, `vetos`, `tutores-reserva`, `perros-reserva`, `reserva-cupos`, `reserva-servicios`, `preparar`, `confirmar`, `descartar`, `admin-servicios`, `admin-estados`, `admin-comparar` y `admin-auditoria`. No todas están permitidas para cada rol. Los parámetros incluyen `perroId`, `tutorId`, `cupoId`, `servicioIds`, `pagina`, `busqueda`, `confirmacion` y `periodo` (`mes-actual` o `mes-anterior`). Las acciones de selección devuelven los parámetros necesarios para seguir.
+Acciones disponibles: `inicio`, `cupos`, `turnos`, `perros-clinica`, `clinica`, `patologias`, `atenciones`, `tutores-faltas`, `faltas`, `vetos`, `tutores-reserva`, `perros-reserva`, `reserva-cupos`, `reserva-servicios`, `preparar`, `confirmar`, `descartar`, `admin-servicios`, `admin-estados`, `admin-comparar`, `admin-auditoria` y `admin-errores`. No todas están permitidas para cada rol. Los parámetros incluyen `perroId`, `tutorId`, `cupoId`, `servicioIds`, `pagina`, `busqueda`, `confirmacion` y `periodo` (`mes-actual` o `mes-anterior`). Las acciones de selección devuelven los parámetros necesarios para seguir.
 
 ## Conversación por texto y conexión con Gemini
 
@@ -111,7 +113,7 @@ El endpoint de texto permite 10 solicitudes por minuto por cuenta, compartidas e
 | --- | --- |
 | Tutor | Sus turnos, mascotas, patologías y atenciones; cupos disponibles. |
 | Veterinario | Su agenda y turnos sin profesional, mascotas, fichas y atenciones visibles; cupos; cancelaciones y vetos de tutores. |
-| Administrador | Servicios solicitados, completados/cancelados, comparación mensual y auditoría. |
+| Administrador | Servicios solicitados, completados/cancelados, comparación mensual, movimientos de auditoría y errores técnicos más frecuentes. |
 
 Ejemplos: «¿Qué turnos tengo?», «¿Hay cupos disponibles?», «Quiero ver las patologías de Luna», «Quiero consultar los vetos de un cliente», «¿Cuáles fueron los servicios más solicitados el mes anterior?».
 

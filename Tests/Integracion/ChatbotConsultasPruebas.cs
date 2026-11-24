@@ -73,12 +73,23 @@ internal static class ChatbotConsultasPruebas
                 "no usa el rol de sesión o expone la llamada interna");
             Exigir(resultado.Mensaje != "Texto no confiable del modelo" && resultado.Resultado!.Acciones.All(x => ChatbotConsultasService.Permitidas(falso.RolRecibido).Contains(x.Solicitud.Accion)), "el modelo redactó los registros o devolvió botones de escritura");
         }
+        ChatbotConsultasService AuditoriaConfundida() => new(new Proveedor(new() { Accion = "admin-auditoria" }), acciones);
+        var principalAdmin = Usuario(userAdmin.Id, "Administrador");
+        var errores = await AuditoriaConfundida().ResponderAsync(new() { Mensaje = "¿Cuál fue el error más frecuente en auditoría?" },
+            principalAdmin, CancellationToken.None);
+        Exigir(errores.Resultado?.Acciones.Any(x => x.Solicitud.Accion == "admin-errores") == true,
+            "se mostraron movimientos en lugar de errores técnicos");
+        var movimientos = await AuditoriaConfundida().ResponderAsync(new() { Mensaje = "Hice un turno por error, mostrame los movimientos" },
+            principalAdmin, CancellationToken.None);
+        Exigir(movimientos.Resultado?.Tablas.Single().Titulo == "Últimas acciones de auditoría",
+            "se confundió un movimiento hecho por error con un registro técnico");
         var lector = new ChatbotConsultasService(new Proveedor(new() { Accion = "cupos" }), acciones);
         var principalTutor = Usuario(cuentaTutor.UserId, "Tutor");
         var ficha = await lector.ConsultarAsync(new() { Accion = "patologias", PerroId = propio }, principalTutor, CancellationToken.None);
         Exigir(ficha.Tablas.Count > 0, "no devolvió la ficha propia");
         await Prohibir(() => lector.ConsultarAsync(new() { Accion = "patologias", PerroId = ajeno }, principalTutor, CancellationToken.None));
         await Prohibir(() => lector.ConsultarAsync(new() { Accion = "admin-auditoria" }, principalTutor, CancellationToken.None));
+        await Prohibir(() => lector.ConsultarAsync(new() { Accion = "admin-errores" }, principalTutor, CancellationToken.None));
         foreach (var accion in new[] { "preparar", "confirmar", "descartar", "inicio", "reserva-cupos", "reserva-servicios", "perros-reserva", "tutores-reserva" })
         {
             await Prohibir(() => lector.ConsultarAsync(new() { Accion = accion }, principalTutor, CancellationToken.None));

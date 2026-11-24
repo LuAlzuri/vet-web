@@ -9,7 +9,7 @@ using VetWeb.Models;
 namespace VetWeb.Services.Chatbot;
 
 // Consultas de solo lectura exclusivas del rol activo Administrador.
-public sealed class ChatbotAdministradorService(ApplicationDbContext db, AuditoriaService auditoria)
+public sealed class ChatbotAdministradorService(ApplicationDbContext db, AuditoriaService auditoria, ConsultaErroresService errores)
 {
     private const int Tamano = 10;
     private static readonly CultureInfo Cultura = CultureInfo.GetCultureInfo("es-AR");
@@ -18,7 +18,7 @@ public sealed class ChatbotAdministradorService(ApplicationDbContext db, Auditor
         TimeZoneInfo.FindSystemTimeZoneById("America/Argentina/Buenos_Aires"));
     private sealed record Totales(int Solicitudes, int Completados, int CanceladosTutor, int CanceladosVeterinario);
 
-    public async Task<ChatbotAccionRespuesta> EjecutarAsync(ChatbotAccionSolicitud solicitud, ClaimsPrincipal usuario)
+    public async Task<ChatbotAccionRespuesta> EjecutarAsync(ChatbotAccionSolicitud solicitud, ClaimsPrincipal usuario, CancellationToken token)
     {
         if (!usuario.IsInRole(RolSesion.Administrador)) throw new UnauthorizedAccessException();
         var acciones = new List<ChatbotAccion>();
@@ -31,7 +31,8 @@ public sealed class ChatbotAdministradorService(ApplicationDbContext db, Auditor
             Boton("Servicios más solicitados", Nueva("admin-servicios"));
             Boton("Turnos completados y cancelados", Nueva("admin-estados"));
             Boton("Comparar este mes con el anterior", Nueva("admin-comparar"));
-            Boton("Últimas acciones de auditoría", Nueva("admin-auditoria"));
+            Boton("Movimientos de auditoría", Nueva("admin-auditoria"));
+            Boton("Errores técnicos más frecuentes", Nueva("admin-errores"));
             return new("Consultas de administración. Elegí qué información querés ver.", tablas, acciones);
         }
         if (!solicitud.Accion.StartsWith("admin-", StringComparison.Ordinal)) throw new UnauthorizedAccessException();
@@ -48,7 +49,7 @@ public sealed class ChatbotAdministradorService(ApplicationDbContext db, Auditor
             Boton("Volver al inicio del asistente", Nueva("inicio"));
             return new("Eventos registrados, del más reciente al más antiguo. Incluye registros con baja lógica.", tablas, acciones);
         }
-        if (solicitud.Accion is not ("admin-servicios" or "admin-estados" or "admin-comparar"))
+        if (solicitud.Accion is not ("admin-servicios" or "admin-estados" or "admin-comparar" or "admin-errores"))
             throw new InvalidOperationException("La consulta administrativa indicada no está disponible.");
 
         var hoy = Reloj.Hoy;
@@ -56,9 +57,30 @@ public sealed class ChatbotAdministradorService(ApplicationDbContext db, Auditor
         var anterior = actual.AddMonths(-1);
         var desde = solicitud.Periodo == "mes-anterior" ? anterior : actual;
         var hastaExclusivo = solicitud.Periodo == "mes-anterior" ? actual : hoy.AddDays(1);
+        var hasta = hastaExclusivo.AddDays(-1);
+        var etiqueta = $"{Fecha(desde)} al {Fecha(hasta)}";
+        if (solicitud.Accion == "admin-errores")
+        {
+            Boton("Consultar este mes", Nueva(solicitud.Accion, periodo: "mes-actual"));
+            Boton("Consultar mes anterior", Nueva(solicitud.Accion, periodo: "mes-anterior"));
+            Boton("Volver al inicio del asistente", Nueva("inicio"));
+            try
+            {
+                var frecuentes = await errores.MasFrecuentesAsync(DateOnly.FromDateTime(desde), DateOnly.FromDateTime(hasta), token);
+                if (frecuentes.Count == 0)
+                    return new($"No se encontraron errores técnicos en los registros conservados del {etiqueta}.", tablas, acciones);
+                tablas.Add(new("Errores técnicos más frecuentes · " + etiqueta, ["Error", "Origen", "Ocurrencias"],
+                    frecuentes.Select(x => new[] { x.Mensaje, x.Origen ?? "—", x.Cantidad.ToString(Cultura) }).ToList()));
+                return new("Se cuentan los errores técnicos conservados del período en hora argentina, agrupados por mensaje y origen. Si hay empate, se muestran todos los errores con más ocurrencias.", tablas, acciones);
+            }
+            catch (IOException)
+            {
+                return new("No se pudo leer el registro de errores técnicos. Intentá más tarde.", tablas, acciones);
+            }
+        }
+
         var inicio = Utc(desde);
         var fin = Utc(hastaExclusivo);
-        var etiqueta = $"{Fecha(desde)} al {Fecha(hastaExclusivo.AddDays(-1))}";
         var mensaje = "";
         await using var transaccion = await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead);
         var eventos = db.AuditoriaAcciones.AsNoTracking().IgnoreQueryFilters();

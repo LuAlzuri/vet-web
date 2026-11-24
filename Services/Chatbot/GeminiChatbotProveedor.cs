@@ -30,7 +30,10 @@ public sealed class GeminiChatbotProveedor(HttpClient http, IConfiguration confi
         cupos: disponibilidad; turnos: agenda visible; perros-clinica: mascotas y sus datos clínicos;
         tutores-faltas: buscar tutores para consultar cancelaciones y vetos;
         admin-servicios: ranking de servicios; admin-estados: totales de completados y cancelados;
-        admin-comparar: comparación de meses; admin-auditoria: eventos de auditoría.
+        admin-comparar: comparación de meses; admin-auditoria: movimientos de usuarios y cambios de estado;
+        admin-errores: errores técnicos más frecuentes del registro de errores, por mes.
+        Si preguntan por el error más frecuente o por errores técnicos, usá admin-errores.
+        Usá admin-auditoria solo para movimientos, acciones de usuarios o cambios registrados.
         Para patologías o atenciones pedí perros-clinica: el usuario elegirá explícitamente su mascota.
         Para vetos o cancelaciones de un cliente pedí tutores-faltas y su nombre como busqueda.
         No inventes IDs. Pedí una sola consulta por mensaje. busqueda filtra mascotas o tutores por nombre;

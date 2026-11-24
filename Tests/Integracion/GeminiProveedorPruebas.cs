@@ -60,7 +60,7 @@ internal static class GeminiProveedorPruebas
                     new[] { "consultar_vetweb", "iniciar_reserva_vetweb" }), "se expuso una herramienta fuera del rol o de la selección");
                 var opciones = funcion.GetProperty("parameters").GetProperty("properties").GetProperty("accion").GetProperty("enum").EnumerateArray().Select(x => x.GetString()).ToArray();
                 Exigir(opciones.Contains(accion) && !opciones.Contains("preparar") && !opciones.Contains("confirmar"), "herramientas de escritura expuestas");
-                Exigir(rol == "Administrador" ? !opciones.Contains("turnos") : !opciones.Contains("admin-auditoria"), "se mezclaron herramientas de roles");
+                Exigir(rol == "Administrador" ? !opciones.Contains("turnos") && opciones.Contains("admin-errores") : !opciones.Contains("admin-auditoria") && !opciones.Contains("admin-errores"), "se mezclaron herramientas de roles");
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(new { candidates = new[] { new { finishReason = "STOP", content = new { parts = new[] { new { functionCall = new { name = "consultar_vetweb", args = new { accion } } } } } } } })) };
             }));
             var elegida = await new GeminiChatbotProveedor(transporte, config, NullLogger<GeminiChatbotProveedor>.Instance).ResponderAsync(solicitud, CancellationToken.None);

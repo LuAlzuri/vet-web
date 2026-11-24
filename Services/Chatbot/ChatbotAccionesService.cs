@@ -16,10 +16,10 @@ public sealed class ChatbotAccionesService(ApplicationDbContext db, TurnoService
     private static string Fecha(DateTime fecha) => fecha.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
     private static string FechaUtc(DateTime fecha) => Reloj.EnArgentina(fecha).ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture);
 
-    public async Task<ChatbotAccionRespuesta> EjecutarAsync(ChatbotAccionSolicitud solicitud, ClaimsPrincipal principal)
+    public async Task<ChatbotAccionRespuesta> EjecutarAsync(ChatbotAccionSolicitud solicitud, ClaimsPrincipal principal, CancellationToken cancelacion = default)
     {
         var usuario = principal.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new UnauthorizedAccessException();
-        if (principal.IsInRole(RolSesion.Administrador)) return await administrador.EjecutarAsync(solicitud, principal);
+        if (principal.IsInRole(RolSesion.Administrador)) return await administrador.EjecutarAsync(solicitud, principal, cancelacion);
         if (solicitud.Accion.StartsWith("admin-", StringComparison.Ordinal)) throw new UnauthorizedAccessException();
         var veterinario = principal.IsInRole("Veterinario");
         if (!veterinario && !principal.IsInRole("Tutor")) throw new UnauthorizedAccessException();

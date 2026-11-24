@@ -20,21 +20,48 @@ public sealed class ConsultaErroresService(IConfiguration configuracion, IWebHos
     public async Task<List<ErrorLogRespuesta>> ListarAsync(
         DateOnly? desde, DateOnly? hasta, int pagina, int tamano, CancellationToken ct)
     {
+        var limite = pagina * tamano;
+        var seleccion = new PriorityQueue<ErrorLogRespuesta, (DateTimeOffset Fecha, long Orden)>();
+        long orden = 0;
+        await LeerAsync(desde, hasta, entrada =>
+        {
+            seleccion.Enqueue(entrada, (entrada.FechaUtc, orden++));
+            if (seleccion.Count > limite)
+                seleccion.Dequeue();
+        }, ct);
+        return seleccion.UnorderedItems.OrderByDescending(e => e.Priority)
+            .Skip((pagina - 1) * tamano).Select(e => e.Element).ToList();
+    }
+
+    internal async Task<List<(string Mensaje, string? Origen, int Cantidad)>> MasFrecuentesAsync(
+        DateOnly desde, DateOnly hasta, CancellationToken ct)
+    {
+        var cantidades = new Dictionary<(string Mensaje, string? Origen), int>();
+        await LeerAsync(desde, hasta, entrada =>
+        {
+            var clave = (entrada.Mensaje, entrada.Origen);
+            cantidades[clave] = cantidades.GetValueOrDefault(clave) + 1;
+        }, ct);
+
+        var maximo = cantidades.Values.DefaultIfEmpty().Max();
+        return cantidades.Where(x => x.Value == maximo)
+            .OrderBy(x => x.Key.Mensaje, StringComparer.Ordinal).ThenBy(x => x.Key.Origen, StringComparer.Ordinal)
+            .Select(x => (x.Key.Mensaje, x.Key.Origen, x.Value)).ToList();
+    }
+
+    private async Task LeerAsync(DateOnly? desde, DateOnly? hasta, Action<ErrorLogRespuesta> registrar, CancellationToken ct)
+    {
         if (desde.HasValue && hasta.HasValue && desde.Value > hasta.Value)
             throw new InvalidOperationException("La fecha inicial no puede ser posterior a la fecha final.");
 
         var ruta = ObtenerRuta(configuracion, entorno);
         var carpeta = new DirectoryInfo(Path.GetDirectoryName(ruta)!);
         if (!carpeta.Exists)
-            return [];
+            return;
 
         var prefijo = Regex.Escape(Path.GetFileNameWithoutExtension(ruta));
         var extension = Regex.Escape(Path.GetExtension(ruta));
         var patron = new Regex(@"\A" + prefijo + @"[0-9]{8}(?:_[0-9]{3,})?" + extension + @"\z", RegexOptions.CultureInvariant);
-        var limite = pagina * tamano;
-        var seleccion = new PriorityQueue<ErrorLogRespuesta, (DateTimeOffset Fecha, long Orden)>();
-        long orden = 0;
-
         try
         {
             foreach (var archivo in carpeta.EnumerateFiles().Where(f => patron.IsMatch(f.Name))
@@ -69,9 +96,7 @@ public sealed class ConsultaErroresService(IConfiguration configuracion, IWebHos
                             continue;
                     }
 
-                    seleccion.Enqueue(entrada, (entrada.FechaUtc, orden++));
-                    if (seleccion.Count > limite)
-                        seleccion.Dequeue();
+                    registrar(entrada);
                 }
             }
         }
@@ -84,8 +109,6 @@ public sealed class ConsultaErroresService(IConfiguration configuracion, IWebHos
             throw new IOException("No se pudo leer el registro de errores.", ex);
         }
 
-        return seleccion.UnorderedItems.OrderByDescending(e => e.Priority)
-            .Skip((pagina - 1) * tamano).Select(e => e.Element).ToList();
     }
 
     private static ErrorLogRespuesta? LeerEntrada(string linea)

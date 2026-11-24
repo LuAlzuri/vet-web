@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using VetWeb.Data;
@@ -15,7 +16,7 @@ internal static class ChatbotAdministradorPruebas
     private static DateTime Utc(DateTime valor) => TimeZoneInfo.ConvertTimeToUtc(valor, TimeZoneInfo.FindSystemTimeZoneById("America/Argentina/Buenos_Aires"));
 
     public static async Task EjecutarAsync(ServiceProvider provider, HttpClient admin, HttpClient vet, HttpClient tutor,
-        HttpClient anonimo, HttpClient multirrolConVetActivo)
+        HttpClient anonimo, HttpClient multirrolConVetActivo, string directorioErrores)
     {
         var tokens = new Dictionary<HttpClient, string>();
         foreach (var cliente in new[] { admin, vet, tutor, multirrolConVetActivo })
@@ -37,7 +38,7 @@ internal static class ChatbotAdministradorPruebas
             return (await respuesta.Content.ReadFromJsonAsync<ChatbotAccionRespuesta>())!;
         }
         var inicio = await Consultar(new());
-        var nombres = new[] { "admin-servicios", "admin-estados", "admin-comparar", "admin-auditoria" };
+        var nombres = new[] { "admin-servicios", "admin-estados", "admin-comparar", "admin-auditoria", "admin-errores" };
         Exigir(inicio.Acciones.Select(x => x.Solicitud.Accion).Order().SequenceEqual(nombres.Order()), "menú incorrecto");
         foreach (var nombre in nombres)
             foreach (var cliente in new[] { tutor, vet, multirrolConVetActivo })
@@ -148,6 +149,28 @@ internal static class ChatbotAdministradorPruebas
                 && turnosAntesConsultas == await db.Turnos.IgnoreQueryFilters().CountAsync()
                 && cuposAntesConsultas == await db.CuposDiarios.SumAsync(x => x.NumeroCuposDisponibles), "una consulta modificó datos");
         }
-        Console.WriteLine("Chatbot Administrador: cuatro consultas exclusivas del rol activo, límites mensuales argentinos, eventos deduplicados, bajas lógicas, ranking, comparación, auditoría paginada, CSRF y solo lectura verificados.");
+        var inicioMes = new DateTime(Reloj.Hoy.Year, Reloj.Hoy.Month, 1);
+        var inicioMesUtc = Utc(inicioMes);
+        string Linea(string mensaje, DateTime fecha, string nivel = "Error") => JsonSerializer.Serialize(new
+        {
+            Timestamp = fecha, Level = nivel, MessageTemplate = mensaje, Exception = "detalle privado",
+            Properties = new { SourceContext = "Prueba.Frecuencia" }
+        });
+        Directory.CreateDirectory(directorioErrores);
+        await File.WriteAllLinesAsync(Path.Combine(directorioErrores, "errores-20000101_099.log"),
+            Enumerable.Repeat(Linea("Error A", inicioMesUtc), 28)
+                .Concat(Enumerable.Repeat(Linea("Error B", inicioMesUtc), 28))
+                .Concat(Enumerable.Repeat(Linea("Error excluido", inicioMesUtc, "Warning"), 40))
+                .Concat(Enumerable.Repeat(Linea("Error anterior", inicioMesUtc.AddTicks(-1)), 30))
+                .Append("{"));
+        var errores = await Consultar(new() { Accion = "admin-errores" });
+        var filasErrores = errores.Tablas.Single().Filas;
+        Exigir(filasErrores.Select(x => x[0]).SequenceEqual(["Error A", "Error B"])
+            && filasErrores.All(x => x[1] == "Prueba.Frecuencia" && x[2] == "28"),
+            "el conteo no incluye todos los registros, oculta el empate o mezcla períodos y niveles");
+        var erroresPrevios = await Consultar(new() { Accion = "admin-errores", Periodo = "mes-anterior" });
+        Exigir(erroresPrevios.Tablas.Single().Filas.Single().SequenceEqual(["Error anterior", "Prueba.Frecuencia", "30"]),
+            "el informe de errores no respeta el límite de mes argentino");
+        Console.WriteLine("Chatbot Administrador: cinco consultas exclusivas del rol activo, límites mensuales argentinos, eventos deduplicados, bajas lógicas, ranking, comparación, auditoría paginada, frecuencia de errores, CSRF y solo lectura verificados.");
     }
 }
