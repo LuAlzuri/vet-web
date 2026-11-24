@@ -1,6 +1,6 @@
 # Asistente de VeteWeb
 
-El botón flotante abre el asistente en las páginas con sesión. Las acciones guiadas funcionan sin Gemini y permiten consultar registros y solicitar turnos. Con Gemini configurado, las preguntas por texto también pueden iniciar consultas de solo lectura: el modelo identifica la consulta y el servidor obtiene los registros con el rol activo de la sesión.
+El botón flotante abre el asistente en las páginas con sesión. Las acciones guiadas funcionan sin Gemini y permiten consultar registros y solicitar turnos. Con Gemini configurado, el texto puede iniciar consultas de lectura o abrir la selección para solicitar un turno. El servidor aplica el rol activo de la sesión y obtiene las opciones del sistema.
 
 ## Acciones del dueño (rol Tutor)
 
@@ -119,7 +119,7 @@ Las consultas del modelo no admiten identificadores de tutor o perro. Para consu
 
 El servidor devuelve las tablas reales directamente al navegador con el mismo diseño del flujo guiado. No envía los resultados clínicos, turnos ni auditoría de vuelta a Gemini, y tampoco los agrega al historial enviado en la siguiente consulta. Sí se envían el mensaje del usuario, el historial textual y el nombre de su rol activo. Se hace una sola llamada a Gemini por mensaje.
 
-Los botones de los resultados de lectura usan `POST /api/chatbot/consultas`, con cookie y antifalsificación. Este endpoint valida nuevamente rol y pertenencia, filtra los botones con una lista cerrada y rechaza `preparar`, `confirmar`, `descartar` y todos los pasos de reserva. Las consultas no consumen cupos ni descartan propuestas pendientes. El botón **Acciones disponibles** permite volver explícitamente al flujo guiado existente.
+Los botones de los resultados de lectura usan `POST /api/chatbot/consultas`, con cookie y antifalsificación. Este endpoint valida nuevamente rol y pertenencia, filtra los botones con una lista cerrada y rechaza `preparar`, `confirmar`, `descartar` y todos los pasos de reserva. Las consultas no consumen cupos ni descartan propuestas pendientes. **Volver a la propuesta de turno** recupera el resumen abierto en esa página.
 
 Para comprobar únicamente la interpretación del modelo, sin leer registros:
 
@@ -127,10 +127,24 @@ Para comprobar únicamente la interpretación del modelo, sin leer registros:
 dotnet run --project VetWeb.csproj --launch-profile http -- --probar-gemini --consulta-lectura
 ```
 
-Queda pendiente incorporar preparación de reservas desde texto. Esta etapa no ejecuta operaciones de escritura.
+### Solicitar un turno desde el texto
 
-**No exponer `confirmar` como herramienta ejecutable por el modelo.** La escritura debe seguir dependiendo del botón y del token vinculado a la sesión. El texto “confirmo” del historial no prueba consentimiento.
+Como Tutor, escribí «Quiero pedir un turno para mi perro» o «Quiero un baño para Luna mañana». Como Veterinario, podés escribir «Quiero agendar a la mascota de un cliente». Gemini puede devolver `iniciar_reserva_vetweb` con pistas de nombre de mascota, tutor, servicio y día. Esta herramienta está disponible para Tutor y Veterinario con ese rol activo.
 
-Referencias: [API generateContent](https://ai.google.dev/api/generate-content) y [modelo Gemini 3.1 Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite).
+1. El Tutor elige uno de sus perros. El Veterinario elige primero el tutor y después uno de sus perros. Las opciones muestran identificadores para distinguir homónimos. Los nombres sugeridos priorizan coincidencias de mascota y servicio o completan la búsqueda editable de tutor.
+2. El servidor resuelve hoy y mañana con la fecha de Argentina. Muestra los cupos del día solicitado y permite consultar otros días. Si la fecha es inválida o pasó, muestra los días disponibles para elegir. La agenda funciona por día.
+3. Elegí el día y los servicios, revisá el resumen y pulsá **Confirmar solicitud de turno**. El texto «confirmo» y el historial nunca ejecutan la confirmación.
+
+El endpoint de mensajes solo abre la selección. Sus botones y los pasos posteriores usan `POST /api/chatbot/acciones` con antifalsificación. El modelo aporta nombres y fechas como pistas. La sesión y las reglas del servidor determinan qué opciones aparecen y qué se puede guardar.
+
+## Verificación y publicación
+
+Ejecutá la suite documentada en el README con un PostgreSQL aislado. Incluye el flujo guiado sin Gemini, el transporte simulado, homónimos, fechas argentinas, permisos, vencimiento, reinicio, manipulación de propuestas y concurrencia por el último cupo.
+
+Esta versión usa las mismas variables y el mismo esquema que la anterior. Conservá la configuración del hosting y el directorio `App_Data/Perros` o su ubicación configurada en `FotosPerros__Directorio`. Al reemplazar o reiniciar la aplicación, las propuestas abiertas vencen y deben prepararse de nuevo. Los turnos ya guardados permanecen en PostgreSQL.
+
+Después de publicar manualmente, verificá una consulta de lectura, la selección de un turno desde texto y el resumen con una cuenta de prueba del rol correspondiente. Si hace falta volver a la versión anterior, republicá el artefacto anterior con la misma configuración y archivos persistentes. Este cambio no requiere aplicar ni revertir migraciones.
+
+[API generateContent](https://ai.google.dev/api/generate-content) · [Gemini 3.1 Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite).
 
 El chatbot consulta registros; no inventa diagnósticos ni modifica datos clínicos. No tiene acciones para eliminar turnos, cambiar estados, editar patologías ni levantar vetos.

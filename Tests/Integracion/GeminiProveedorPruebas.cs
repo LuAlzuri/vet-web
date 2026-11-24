@@ -40,7 +40,11 @@ internal static class GeminiProveedorPruebas
             using var transporte = new HttpClient(new Transporte(async (request, token) =>
             {
                 using var cuerpo = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(token));
-                var funcion = cuerpo.RootElement.GetProperty("tools")[0].GetProperty("functionDeclarations")[0];
+                var funciones = cuerpo.RootElement.GetProperty("tools")[0].GetProperty("functionDeclarations");
+                var funcion = funciones[0];
+                var nombres = funciones.EnumerateArray().Select(x => x.GetProperty("name").GetString()).ToArray();
+                Exigir(nombres.SequenceEqual(rol == "Administrador" ? ["consultar_vetweb"] :
+                    new[] { "consultar_vetweb", "iniciar_reserva_vetweb" }), "se expuso una herramienta fuera del rol o de la selección");
                 var opciones = funcion.GetProperty("parameters").GetProperty("properties").GetProperty("accion").GetProperty("enum").EnumerateArray().Select(x => x.GetString()).ToArray();
                 Exigir(opciones.Contains(accion) && !opciones.Contains("preparar") && !opciones.Contains("confirmar"), "herramientas de escritura expuestas");
                 Exigir(rol == "Administrador" ? !opciones.Contains("turnos") : !opciones.Contains("admin-auditoria"), "se mezclaron herramientas de roles");
@@ -49,6 +53,30 @@ internal static class GeminiProveedorPruebas
             var elegida = await new GeminiChatbotProveedor(transporte, config, NullLogger<GeminiChatbotProveedor>.Instance).ResponderAsync(solicitud, CancellationToken.None);
             Exigir(elegida.Conectado && elegida.Consulta?.Accion == accion && elegida.Resultado is null, "la función no se interpretó correctamente");
         }
+        async Task<ChatbotRespuesta> Llamada(string rol, string herramienta, object argumentos)
+        {
+            solicitud.RolActivo = rol;
+            var llamada = new { functionCall = new { name = herramienta, args = argumentos } };
+            using var transporte = new HttpClient(new Transporte((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(new
+                {
+                    candidates = new[] { new { finishReason = "STOP", content = new { parts = new[] { llamada } } } }
+                }))
+            })));
+            return await new GeminiChatbotProveedor(transporte, config, NullLogger<GeminiChatbotProveedor>.Instance)
+                .ResponderAsync(solicitud, CancellationToken.None);
+        }
+        var reserva = await Llamada("Tutor", "iniciar_reserva_vetweb", new { mascota = "Luna", servicio = "Baño", dia = "mañana" });
+        Exigir(reserva.Conectado && reserva.Reserva == new ChatbotPistasReserva { Mascota = "Luna", Servicio = "Baño", Dia = "mañana" }
+            && reserva.Consulta is null, "no separó la intención de reserva de la consulta");
+        foreach (var rechazada in new[] {
+            await Llamada("Tutor", "iniciar_reserva_vetweb", new { perroId = 123 }),
+            await Llamada("Veterinario", "iniciar_reserva_vetweb", new { confirmar = "token" }),
+            await Llamada("Tutor", "confirmar", new { confirmacion = "token" }),
+            await Llamada("Administrador", "iniciar_reserva_vetweb", new { mascota = "Luna" })
+        })
+            Exigir(!rechazada.Conectado && rechazada.Reserva is null, "se aceptaron identificadores, confirmación o un rol no permitido");
         solicitud.RolActivo = null;
 
         foreach (var (estado, cuerpo, esperado) in new[]

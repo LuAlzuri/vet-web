@@ -30,7 +30,7 @@ public sealed class ChatbotReservasPendientes(IMemoryCache cache)
         {
             var clave = Clave(usuario, veterinario);
             if (!cache.TryGetValue<Pendiente>(clave, out var pendiente) || pendiente is null || pendiente.Token != token)
-                throw new InvalidOperationException("La propuesta venció o ya fue utilizada. Prepará una nueva reserva.");
+                throw new InvalidOperationException("La propuesta ya no está disponible. Puede haber vencido, haberse usado o haberse perdido al reiniciar la aplicación. Prepará una nueva reserva.");
             cache.Remove(clave);
             return (pendiente.Turno, pendiente.Presencial);
         }

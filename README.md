@@ -104,10 +104,10 @@ Crea cuentas de prueba: `veterinario.demo@vetweb.invalid`, `tutor.demo@vetweb.in
 dotnet run --project Tests/Integracion/Integracion.csproj --configuration VerificacionIdentity
 ```
 
-Las pruebas crean y eliminan una base temporal; requieren permiso para crear bases y el puerto `5057` libre. No modifican la base de trabajo. Las fotos cargadas se guardan en `App_Data/Perros`; conservar esa carpeta junto con la base para respaldar los datos.
+Las pruebas crean y eliminan una base temporal y requieren permiso para crear bases y el puerto `5057` libre. Para usar una instancia PostgreSQL aislada en CI o en la nube, configurá `VETWEB_TEST_ConnectionStrings__DefaultConnection` en el entorno de la suite. Tiene prioridad sobre User Secrets. Reservá esta conexión para pruebas y usá una instancia separada del hosting. Las fotos cargadas se guardan en `App_Data/Perros`; conservar esa carpeta junto con la base para respaldar los datos.
 
 ## Documentación adicional
 
-El chat escrito se conecta a Gemini configurando `Gemini:ApiKey`, `Gemini:Modelo` y `Gemini:TimeoutSegundos` en secretos de usuario. Para verificarlo: `dotnet run --project VetWeb.csproj --launch-profile http -- --probar-gemini`. Sin clave, las acciones guiadas siguen funcionando. Ver la guía del asistente para el alcance y la configuración.
+El chat escrito se conecta a Gemini configurando `Gemini:ApiKey`, `Gemini:Modelo` y `Gemini:TimeoutSegundos` en secretos de usuario. Para verificarlo: `dotnet run --project VetWeb.csproj --launch-profile http -- --probar-gemini`. Con Gemini, tutores y veterinarios pueden iniciar desde texto la selección guiada para solicitar un turno. La confirmación se hace con el botón del resumen. Las acciones guiadas siguen disponibles sin clave.
 
 [API](docs/API.md) · [Modelo y DER](docs/DER.md) · [Diseño visual](docs/DISENO_VISUAL.md) · [Asistente de chat](docs/CHATBOT.md)

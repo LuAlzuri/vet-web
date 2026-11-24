@@ -9,7 +9,7 @@
             </header>
             @if (User.IsInRole("Tutor") || User.IsInRole("Veterinario"))
             {
-                <p class="chatbot-aviso">Preguntá por tus mascotas, turnos o cupos. El texto se envía a Gemini; los resultados se consultan con tus permisos y se muestran aquí. Las reservas se realizan desde las acciones guiadas.</p>
+                <p class="chatbot-aviso">Consultá mascotas, turnos y cupos, o pedí un turno. El texto se envía a Gemini. Para guardar una solicitud, revisá el resumen y pulsá Confirmar.</p>
             }
             else
             {

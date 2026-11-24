@@ -24,4 +24,14 @@ public sealed class ChatbotSolicitud : IValidatableObject
 
 public sealed record ChatbotMensaje(string Rol, string Texto);
 public sealed record ChatbotRespuesta(string Mensaje, bool Conectado,
-    ChatbotAccionSolicitud? Consulta = null, ChatbotAccionRespuesta? Resultado = null);
+    ChatbotAccionSolicitud? Consulta = null, ChatbotAccionRespuesta? Resultado = null,
+    ChatbotAccionSolicitud? InicioReserva = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] ChatbotPistasReserva? Reserva = null);
+
+public sealed record ChatbotPistasReserva
+{
+    [StringLength(100)] public string? Mascota { get; init; }
+    [StringLength(100)] public string? Tutor { get; init; }
+    [StringLength(100)] public string? Servicio { get; init; }
+    [StringLength(10)] public string? Dia { get; init; }
+}

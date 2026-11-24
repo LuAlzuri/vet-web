@@ -59,7 +59,7 @@ internal static class ChatbotPruebas
                 Content = JsonContent.Create(new { accion = "inicio" }),
                 Headers = { { "RequestVerificationToken", token } }
             });
-            Exigir(accionesDisponibles.IsSuccessStatusCode, "el límite de texto bloquea las acciones guiadas");
+            Exigir(accionesDisponibles.IsSuccessStatusCode, $"las acciones guiadas devolvieron {(int)accionesDisponibles.StatusCode} tras limitar el texto: {await accionesDisponibles.Content.ReadAsStringAsync()}");
         }
         Console.WriteLine("Chatbot: tres roles, autenticación, CSRF, validación y proveedor sin conexión verificados.");
     }

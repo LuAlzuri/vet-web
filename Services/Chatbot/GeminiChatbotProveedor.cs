@@ -9,6 +9,10 @@ namespace VetWeb.Services.Chatbot;
 public sealed class GeminiChatbotProveedor(HttpClient http, IConfiguration configuracion,
     ILogger<GeminiChatbotProveedor> logger) : IChatbotProveedor
 {
+    private static readonly JsonSerializerOptions OpcionesReserva = new(JsonSerializerDefaults.Web)
+    {
+        UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow
+    };
     private const string Instrucciones = """
         Sos el asistente de VeteWeb, sistema de peluquería canina de El Refugio.
         Respondé en español, con claridad y brevedad, sin Markdown ni HTML.
@@ -18,7 +22,7 @@ public sealed class GeminiChatbotProveedor(HttpClient http, IConfiguration confi
         Administrador gestiona veterinarios, roles, auditoría e informes.
         Cada sesión trabaja con un solo rol activo, que se cambia desde el menú del nombre.
         Para cambiar la contraseña se usa el menú del nombre, Cambiar contraseña.
-        No tenés acceso a datos reales por tu cuenta, ni a funciones de reserva o escritura.
+        No tenés acceso a datos reales por tu cuenta ni podés guardar o confirmar reservas.
         Si recibís la herramienta consultar_vetweb, usala para solicitar una consulta de lectura.
         Solo proponé las acciones enumeradas para el rol activo provisto por el servidor.
         cupos: disponibilidad; turnos: agenda visible; perros-clinica: mascotas y sus datos clínicos;
@@ -30,7 +34,12 @@ public sealed class GeminiChatbotProveedor(HttpClient http, IConfiguration confi
         No inventes IDs. Pedí una sola consulta por mensaje. busqueda filtra mascotas o tutores por nombre;
         no representa filtros por fecha o estado. Solo se admiten mes-actual o mes-anterior para informes.
         Si piden otros períodos o filtros no soportados, explicá la limitación y pedí elegir una opción válida.
-        Para reservas, cancelaciones, ediciones o bajas indicá las opciones de la web, sin ejecutar herramientas.
+        Si el mensaje actual pide iniciar un turno y está disponible iniciar_reserva_vetweb, usala.
+        Pasá solo pistas mencionadas en el mensaje actual: nombre de mascota, tutor, servicio y día.
+        Conservá hoy o mañana como texto literal. Si la fecha explícita es completa, pasala en formato AAAA-MM-DD.
+        Si no podés interpretar el día, omitilo para que el usuario elija. No calcules fechas relativas ni propongas horarios.
+        Una confirmación escrita no inicia ni confirma una reserva. Para cancelar, editar o dar de baja,
+        indicá las opciones de la web sin ejecutar herramientas.
         Nunca afirmes haber consultado registros, reservado, confirmado ni modificado datos.
         No inventes disponibilidad, precios, horarios, información clínica ni permisos del usuario.
         No pidas contraseñas ni claves. No diagnostiques ni indiques medicamentos.
@@ -65,8 +74,10 @@ public sealed class GeminiChatbotProveedor(HttpClient http, IConfiguration confi
         };
         var permitidas = ChatbotConsultasService.Permitidas(solicitud.RolActivo)
             .Where(x => x is not ("clinica" or "patologias" or "atenciones" or "faltas" or "vetos")).ToArray();
+        var puedeReservar = ChatbotConsultasService.PuedeSolicitarReserva(solicitud.RolActivo);
+        var herramientas = new List<object>();
         if (permitidas.Length > 0)
-            cuerpo["tools"] = new[] { new { functionDeclarations = new[] { new
+            herramientas.Add(new
             {
                 name = "consultar_vetweb", description = "Solicitar una consulta de lectura. El servidor valida permisos y muestra los resultados; no realiza modificaciones.",
                 parameters = new { type = "OBJECT", properties = new Dictionary<string, object>
@@ -76,7 +87,21 @@ public sealed class GeminiChatbotProveedor(HttpClient http, IConfiguration confi
                     ["pagina"] = new { type = "INTEGER", minimum = 1, maximum = 100000 },
                     ["periodo"] = new { type = "STRING", @enum = new[] { "mes-actual", "mes-anterior" } }
                 }, required = new[] { "accion" } }
-            } } } };
+            });
+        if (puedeReservar)
+            herramientas.Add(new
+            {
+                name = "iniciar_reserva_vetweb",
+                description = "Abrir la selección guiada para solicitar un turno. Solo presenta opciones; no guarda ni confirma.",
+                parameters = new { type = "OBJECT", properties = new Dictionary<string, object>
+                {
+                    ["mascota"] = new { type = "STRING", description = "Nombre de la mascota, sin identificadores." },
+                    ["tutor"] = new { type = "STRING", description = "Nombre o apellido del tutor, sin identificadores." },
+                    ["servicio"] = new { type = "STRING", description = "Nombre de un servicio, sin identificadores." },
+                    ["dia"] = new { type = "STRING", description = "hoy, mañana o una fecha completa AAAA-MM-DD." }
+                } }
+            });
+        if (herramientas.Count > 0) cuerpo["tools"] = new[] { new { functionDeclarations = herramientas } };
         peticion.Content = JsonContent.Create(cuerpo);
         using var espera = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         espera.CancelAfter(TimeSpan.FromSeconds(segundos));
@@ -109,7 +134,15 @@ public sealed class GeminiChatbotProveedor(HttpClient http, IConfiguration confi
                         if (fin != "STOP" || llamadas.Count != 1 || permitidas.Length == 0)
                             return Fallo("Hacé una consulta por vez para poder mostrar sus resultados.");
                         var llamada = llamadas[0].GetProperty("functionCall");
-                        if (llamada.GetProperty("name").GetString() != "consultar_vetweb")
+                        var nombre = llamada.GetProperty("name").GetString();
+                        if (nombre == "iniciar_reserva_vetweb" && puedeReservar)
+                        {
+                            var reserva = llamada.GetProperty("args").Deserialize<ChatbotPistasReserva>(OpcionesReserva);
+                            if (reserva is null) return Fallo("No se pudo interpretar la solicitud. Usá las opciones del asistente.");
+                            ValidacionDto.Comprobar(reserva);
+                            return new("Elegí las opciones para solicitar un turno.", true, Reserva: reserva);
+                        }
+                        if (nombre != "consultar_vetweb")
                             return Fallo("La herramienta solicitada no está disponible.");
                         var consulta = llamada.GetProperty("args").Deserialize<ChatbotAccionSolicitud>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                         if (consulta is null || !permitidas.Contains(consulta.Accion))

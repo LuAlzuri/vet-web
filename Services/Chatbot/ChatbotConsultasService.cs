@@ -1,9 +1,10 @@
+using System.Globalization;
 using System.Security.Claims;
 using VetWeb.Dtos;
 
 namespace VetWeb.Services.Chatbot;
 
-// Lista cerrada: ni el proveedor ni este endpoint pueden preparar, confirmar o descartar reservas.
+// La conversación puede iniciar la selección. El endpoint de consultas conserva su lista de solo lectura.
 public sealed class ChatbotConsultasService(IChatbotProveedor proveedor, ChatbotAccionesService acciones)
 {
     public static string[] Permitidas(string? rol) => rol switch
@@ -13,6 +14,8 @@ public sealed class ChatbotConsultasService(IChatbotProveedor proveedor, Chatbot
         RolSesion.Administrador => ["admin-servicios", "admin-estados", "admin-comparar", "admin-auditoria"],
         _ => []
     };
+
+    internal static bool PuedeSolicitarReserva(string? rol) => rol is "Tutor" or "Veterinario";
 
     private static string Rol(ClaimsPrincipal usuario)
     {
@@ -28,6 +31,28 @@ public sealed class ChatbotConsultasService(IChatbotProveedor proveedor, Chatbot
     {
         solicitud.RolActivo = Rol(usuario);
         var respuesta = await proveedor.ResponderAsync(solicitud, token);
+        if (respuesta.Conectado && respuesta.Reserva is not null)
+        {
+            if (!PuedeSolicitarReserva(solicitud.RolActivo) || respuesta.Consulta is not null)
+                throw new UnauthorizedAccessException();
+            ValidacionDto.Comprobar(respuesta.Reserva);
+            token.ThrowIfCancellationRequested();
+            var pistas = respuesta.Reserva;
+            var hoy = Reloj.Hoy;
+            var dia = pistas.Dia?.Trim().ToLowerInvariant() switch
+            {
+                "hoy" => hoy.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                "mañana" => hoy.AddDays(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                _ => pistas.Dia?.Trim()
+            };
+            var inicio = new ChatbotAccionSolicitud
+            {
+                Accion = solicitud.RolActivo == "Tutor" ? "perros-reserva" : "tutores-reserva",
+                PistasReserva = pistas with { Dia = dia, Tutor = solicitud.RolActivo == "Tutor" ? null : pistas.Tutor }
+            };
+            var opciones = await acciones.EjecutarAsync(inicio, usuario);
+            return new(opciones.Mensaje, true, Resultado: opciones, InicioReserva: inicio);
+        }
         if (!respuesta.Conectado || respuesta.Consulta is null)
             return new(respuesta.Mensaje, respuesta.Conectado); // Nunca devolver resultados aportados por el modelo.
         var consulta = respuesta.Consulta;
@@ -45,7 +70,7 @@ public sealed class ChatbotConsultasService(IChatbotProveedor proveedor, Chatbot
         var rol = Rol(usuario);
         ValidacionDto.Comprobar(consulta);
         if (!Permitidas(rol).Contains(consulta.Accion)) throw new UnauthorizedAccessException();
-        if (consulta.CupoId.HasValue || consulta.Confirmacion is not null || consulta.ServicioIds is null || consulta.ServicioIds.Count != 0)
+        if (consulta.CupoId.HasValue || consulta.Confirmacion is not null || consulta.PistasReserva is not null || consulta.ServicioIds is null || consulta.ServicioIds.Count != 0)
             throw new InvalidOperationException("Esta opción solo permite consultas de lectura.");
         token.ThrowIfCancellationRequested();
         var resultado = await acciones.EjecutarAsync(consulta, usuario);

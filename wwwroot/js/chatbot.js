@@ -80,10 +80,13 @@
             const data = await response.json();
             if (typeof data.mensaje !== "string" || !data.mensaje.trim()) throw new Error("El asistente no devolvió una respuesta válida.");
             append("assistant", data.mensaje);
-            if (data.resultado) root.dispatchEvent(new CustomEvent("chatbot-consulta", { detail: data.resultado }));
+            if (data.resultado) root.dispatchEvent(new CustomEvent("chatbot-resultado", {
+                detail: { resultado: data.resultado, inicioReserva: data.inicioReserva }
+            }));
             // Las respuestas del modo sin conexión no forman parte del contexto futuro.
             if (data.conectado) history = [...history, { rol: "user", texto: text },
-                { rol: "assistant", texto: data.resultado ? "Los resultados de lectura se mostraron en la grilla del servidor. Elegí sus opciones para continuar." : data.mensaje }].slice(-12);
+                { rol: "assistant", texto: data.inicioReserva ? "Se mostraron las opciones para solicitar un turno."
+                    : data.resultado ? "Los resultados de lectura se mostraron en la grilla del servidor. Elegí sus opciones para continuar." : data.mensaje }].slice(-12);
             input.value = "";
             status.textContent = data.conectado ? "" : "Modo sin conexión.";
         } catch (error) {

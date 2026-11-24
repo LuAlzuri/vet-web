@@ -12,6 +12,7 @@ public sealed class ChatbotAccionSolicitud
     [StringLength(100)] public string? Busqueda { get; set; }
     [MaxLength(20)] public List<int> ServicioIds { get; set; } = [];
     [Required, RegularExpression("^(mes-actual|mes-anterior)$")] public string Periodo { get; set; } = "mes-actual";
+    public ChatbotPistasReserva? PistasReserva { get; set; }
     [StringLength(100)] public string? Confirmacion { get; set; }
 }
 

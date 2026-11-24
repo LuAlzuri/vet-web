@@ -15,8 +15,12 @@ using VetWeb.Services;
 
 // Estas pruebas crean y eliminan únicamente una base temporal de nombre aleatorio.
 // No aplican migraciones ni escriben datos en la base configurada por el usuario.
-var config = new ConfigurationBuilder().AddUserSecrets("VetWeb-Desarrollo-2026").Build();
-var original = new NpgsqlConnectionStringBuilder(config.GetConnectionString("DefaultConnection"));
+var config = new ConfigurationBuilder().AddUserSecrets("VetWeb-Desarrollo-2026")
+    .AddEnvironmentVariables(prefix: "VETWEB_TEST_").Build();
+var cadenaPruebas = config.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(cadenaPruebas))
+    throw new InvalidOperationException("Configurá una conexión PostgreSQL aislada para la suite de integración.");
+var original = new NpgsqlConnectionStringBuilder(cadenaPruebas);
 var temporal = "vetweb_prueba_" + Guid.NewGuid().ToString("N");
 var directorioFotosPrueba = Path.Combine(Path.GetTempPath(), temporal + "_fotos");
 var directorioErroresPrueba = Path.Combine(Path.GetTempPath(), temporal + "_logs");
