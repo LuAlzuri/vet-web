@@ -107,11 +107,16 @@ public sealed class ConsultaErroresService(IConfiguration configuracion, IWebHos
             evento.TryGetProperty("Properties", out var propiedades);
             var origen = Texto(propiedades, "SourceContext");
             if (origen == typeof(Chatbot.GeminiChatbotProveedor).FullName
-                && mensaje == Chatbot.GeminiChatbotProveedor.MensajeErrorHttp
+                && mensaje is Chatbot.GeminiChatbotProveedor.MensajeErrorHttp or Chatbot.GeminiChatbotProveedor.MensajeErrorHttpConEstado
                 && propiedades.TryGetProperty("Estado", out var estado)
                 && estado.ValueKind == JsonValueKind.Number && estado.TryGetInt32(out var codigo)
                 && codigo is >= 100 and <= 599)
-                mensaje = mensaje.Replace("{Estado}", codigo.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            {
+                var estadoGoogle = Texto(propiedades, "EstadoGoogle");
+                mensaje = mensaje.Replace("{Estado}", codigo.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    .Replace("{EstadoGoogle}", Chatbot.GeminiChatbotProveedor.EsEstadoGoogle(estadoGoogle)
+                        ? estadoGoogle! : "sin estado estructurado reconocido");
+            }
 
             return new ErrorLogRespuesta(fecha.ToUniversalTime(), nivel, mensaje, origen,
                 Texto(propiedades, "Metodo"), Texto(propiedades, "Ruta"), Texto(propiedades, "IdSolicitud"));
