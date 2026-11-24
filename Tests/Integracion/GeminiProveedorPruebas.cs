@@ -33,6 +33,23 @@ internal static class GeminiProveedorPruebas
         var proveedor = new GeminiChatbotProveedor(http, config, NullLogger<GeminiChatbotProveedor>.Instance);
         var respuesta = await proveedor.ResponderAsync(solicitud, CancellationToken.None);
         Exigir(respuesta.Conectado && respuesta.Mensaje == "Usá las acciones disponibles.", "no se extrajo el texto o se expuso razonamiento");
+        foreach (var rol in new[] { "Tutor", "Veterinario", "Administrador" })
+        {
+            solicitud.RolActivo = rol;
+            var accion = rol == "Administrador" ? "admin-estados" : "turnos";
+            using var transporte = new HttpClient(new Transporte(async (request, token) =>
+            {
+                using var cuerpo = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(token));
+                var funcion = cuerpo.RootElement.GetProperty("tools")[0].GetProperty("functionDeclarations")[0];
+                var opciones = funcion.GetProperty("parameters").GetProperty("properties").GetProperty("accion").GetProperty("enum").EnumerateArray().Select(x => x.GetString()).ToArray();
+                Exigir(opciones.Contains(accion) && !opciones.Contains("preparar") && !opciones.Contains("confirmar"), "herramientas de escritura expuestas");
+                Exigir(rol == "Administrador" ? !opciones.Contains("turnos") : !opciones.Contains("admin-auditoria"), "se mezclaron herramientas de roles");
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(new { candidates = new[] { new { finishReason = "STOP", content = new { parts = new[] { new { functionCall = new { name = "consultar_vetweb", args = new { accion } } } } } } } })) };
+            }));
+            var elegida = await new GeminiChatbotProveedor(transporte, config, NullLogger<GeminiChatbotProveedor>.Instance).ResponderAsync(solicitud, CancellationToken.None);
+            Exigir(elegida.Conectado && elegida.Consulta?.Accion == accion && elegida.Resultado is null, "la función no se interpretó correctamente");
+        }
+        solicitud.RolActivo = null;
 
         foreach (var (estado, cuerpo, esperado) in new[]
         {

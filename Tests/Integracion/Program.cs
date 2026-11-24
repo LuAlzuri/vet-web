@@ -35,12 +35,16 @@ async Task Rechazar(Func<Task> accion, string mensaje)
 }
 var services = new ServiceCollection();
 services.AddLogging();
+services.AddMemoryCache();
 services.AddDbContext<ApplicationDbContext>(o => o.UseNpgsql(prueba.ConnectionString));
 services.AddIdentityCore<ApplicationUser>(o => { o.User.RequireUniqueEmail = true; o.Password.RequiredLength = 8; })
     .AddRoles<IdentityRole>().AddEntityFrameworkStores<ApplicationDbContext>();
 services.AddScoped<CuentaService>(); services.AddScoped<TurnoService>(); services.AddScoped<CatalogosFormularioService>();
 services.AddScoped<VetoService>();
 services.AddScoped<AuditoriaService>();
+services.AddSingleton<VetWeb.Services.Chatbot.ChatbotReservasPendientes>();
+services.AddScoped<VetWeb.Services.Chatbot.ChatbotAdministradorService>();
+services.AddScoped<VetWeb.Services.Chatbot.ChatbotAccionesService>();
 await using var provider = services.BuildServiceProvider();
 string vetId = "", tutorId = "", otroId = "", dualId = "";
 int perroId = 0, otroPerroId = 0, cupoId = 0, servicioId = 0, vetPerfil = 0, dualPerfil = 0, turnoId = 0;
@@ -771,6 +775,7 @@ try
         await Token(demoDualVet,"/Turnos/ObtenerFormulario"));
     await CatalogosPruebas.EjecutarAsync(provider, demoVet, administrador, demoTutor, anon);
     await ChatbotPruebas.EjecutarAsync(demoVet, administrador, demoTutor, anon);
+    await ChatbotConsultasPruebas.EjecutarAsync(provider, demoVet, administrador, demoTutor, anon);
     await ChatbotAccionesPruebas.EjecutarAsync(provider, demoVet, administrador, anon, Cliente, (c, e) => Ingresar(c, e, password), password);
     await ChatbotAdministradorPruebas.EjecutarAsync(provider, administrador, demoVet, demoTutor, anon, tresRoles);
     var tokenCambioCatalogos = await Token(tresRoles, "/Identity/Cuenta/Salir");
