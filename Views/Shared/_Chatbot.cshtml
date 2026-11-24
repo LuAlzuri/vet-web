@@ -7,11 +7,7 @@
                 <h2 id="chatbot-titulo">Asistente VeteWeb</h2>
                 <button type="button" class="btn btn-sm btn-light" data-chatbot-cerrar aria-label="Cerrar asistente">Cerrar</button>
             </header>
-            @if (User.IsInRole("Tutor") || User.IsInRole("Veterinario"))
-            {
-                <p class="chatbot-aviso">Consultá mascotas, turnos y cupos, o pedí un turno. El texto se envía a Gemini. Para guardar una solicitud, revisá el resumen y pulsá Confirmar.</p>
-            }
-            else
+            @if (!User.IsInRole("Tutor") && !User.IsInRole("Veterinario"))
             {
                 <p class="chatbot-aviso">Preguntá por informes y auditoría. El texto se envía a Gemini; el servidor muestra los registros permitidos sin enviárselos al modelo.</p>
             }
