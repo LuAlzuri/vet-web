@@ -9,6 +9,7 @@ namespace VetWeb.Services.Chatbot;
 public sealed class GeminiChatbotProveedor(HttpClient http, IConfiguration configuracion,
     ILogger<GeminiChatbotProveedor> logger) : IChatbotProveedor
 {
+    internal const string MensajeErrorHttp = "Gemini rechazó una consulta. Código HTTP: {Estado}";
     private static readonly JsonSerializerOptions OpcionesReserva = new(JsonSerializerDefaults.Web)
     {
         UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow
@@ -111,7 +112,7 @@ public sealed class GeminiChatbotProveedor(HttpClient http, IConfiguration confi
             if (!respuesta.IsSuccessStatusCode)
             {
                 // No registrar claves, conversaciones ni el cuerpo de error del proveedor.
-                logger.LogError("Gemini rechazó una consulta. Código HTTP: {Estado}", (int)respuesta.StatusCode);
+                logger.LogError(MensajeErrorHttp, (int)respuesta.StatusCode);
                 return Fallo(respuesta.StatusCode switch
                 {
                     HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => "Gemini rechazó el acceso. Revisá la clave y los permisos del proyecto en el servidor.",
